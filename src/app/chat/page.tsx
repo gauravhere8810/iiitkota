@@ -12,7 +12,11 @@ import {
   Plus,
   ArrowRight,
   Search,
-  FileText
+  FileText,
+  Sparkles,
+  Loader2,
+  BrainCircuit,
+  CalendarDays
 } from "lucide-react";
 import styles from "./Chat.module.css";
 import { clsx } from "clsx";
@@ -30,62 +34,110 @@ interface Message {
 
 export default function ChatPage() {
   const { user, activeClubId } = useAuth();
-  const [channel, setChannel] = useState<"INFORMAL" | "FORMAL" | "ANNOUNCEMENTS">("ANNOUNCEMENTS");
+  const [channel, setChannel] = useState<"INFORMAL" | "FORMAL">("INFORMAL");
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState("");
+  const [isSummarizing, setIsSummarizing] = useState(false);
+  const [summary, setSummary] = useState<string | null>(null);
+  const [showSummaryModal, setShowSummaryModal] = useState(false);
+  const [summaryHours, setSummaryHours] = useState(24);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const activeClub = user?.clubs.find(c => c.id === activeClubId);
   const isTopRole = activeClub?.role === "SAC_HEAD" || activeClub?.role === "SAC_MEMBER" || activeClub?.role === "CLUB_HEAD";
-  const isGeneralMember = activeClub?.role === "STUDENT";
 
   useEffect(() => {
-    // General members can only access ANNOUNCEMENTS
-    if (isGeneralMember && channel !== "ANNOUNCEMENTS") {
-      setChannel("ANNOUNCEMENTS");
-    }
-    
-    // Core members cannot see FORMAL, but can see ANNOUNCEMENTS and INFORMAL
+    // Core members cannot see FORMAL, but can see INFORMAL
     if (!isTopRole && channel === "FORMAL") {
       setChannel("INFORMAL");
     }
-  }, [isGeneralMember, isTopRole, channel]);
+  }, [isTopRole, channel]);
 
+  // Fetch history from database
   useEffect(() => {
-    // Mocking messages for demo
-    if (channel === "INFORMAL") {
-      setMessages([
-        { id: "1", sender: "Charlie Dev", content: "Hey anyone up for a late night coding session?", timestamp: "10:30 PM" },
-        { id: "2", sender: "Eve Coder", content: "I'm down! In the lab?", timestamp: "10:32 PM" },
-        { id: "3", sender: "Charlie Dev", content: "Yep, see ya there.", timestamp: "10:35 PM" },
-      ]);
-    } else if (channel === "FORMAL") {
-      setMessages([
-        { id: "201", sender: "Dr. Alice Smith", content: "Let's review the finalized budget for the tech symposium.", timestamp: "11:00 AM" },
-        { id: "202", sender: "Admin Bob", content: "Agreed. I will upload the Excel spec sheet soon.", timestamp: "11:15 AM" },
-      ]);
-    } else {
-      setMessages([
-        { id: "101", sender: "Dr. Alice Smith", content: "OFFICIAL: The Coding Lab will be closed for maintenance tomorrow from 2 PM to 5 PM.", timestamp: "09:00 AM", isOfficial: true },
-        { id: "102", sender: "Prof. Bob Jones", content: "REMINDER: Annual Membership fees are due by end of this week.", timestamp: "Yesterday", isOfficial: true },
-      ]);
+    if (activeClubId) {
+      fetch(`/api/chat?clubId=${activeClubId}&channel=${channel}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.messages) {
+            setMessages(data.messages);
+          } else {
+            // Fallback to mock if API fails or is empty for demo feel
+            const mockMessages = channel === "INFORMAL" ? [
+              { id: "1", sender: "Charlie Dev", content: "Hey anyone up for a late night coding session?", timestamp: "10:30 PM" },
+              { id: "2", sender: "Eve Coder", content: "I'm down! In the lab?", timestamp: "10:32 PM" },
+              { id: "3", sender: "Charlie Dev", content: "Yep, see ya there.", timestamp: "10:35 PM" },
+            ] : [
+              { id: "201", sender: "Dr. Alice Smith", content: "Let's review the finalized budget for the tech symposium.", timestamp: "11:00 AM" },
+              { id: "202", sender: "Admin Bob", content: "Agreed. I will upload the Excel spec sheet soon.", timestamp: "11:15 AM" },
+            ];
+            setMessages(mockMessages);
+          }
+        });
     }
-  }, [channel]);
+  }, [activeClubId, channel]);
 
-  const handleSend = () => {
-    if (!inputText.trim()) return;
+  const handleSend = async () => {
+    if (!inputText.trim() || !activeClubId || !user) return;
+    
+    const tempId = Date.now().toString();
     const newMessage = {
-      id: Date.now().toString(),
-      sender: user?.name || "Unknown",
+      id: tempId,
+      sender: user.name,
       content: inputText,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      isOfficial: channel === "ANNOUNCEMENTS"
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
+    
+    // Optimistic update
     setMessages([...messages, newMessage]);
     setInputText("");
-    
-    // Simulate real-time feed update for demo logic
-    console.log("CHAT_NEW event triggered");
+
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          content: inputText,
+          channel: channel,
+          clubId: activeClubId,
+          userId: user.id,
+          userName: user.name,
+          userEmail: user.email
+        })
+      });
+      const data = await res.json();
+      if (data.message) {
+        // Replace temp message with real one from DB
+        setMessages(prev => prev.map(m => m.id === tempId ? data.message : m));
+      }
+    } catch (error) {
+      console.error("Failed to save message:", error);
+    }
+  };
+
+  const handleSummarize = async () => {
+    if (!activeClubId) return;
+    setIsSummarizing(true);
+    setSummary(null);
+    setShowSummaryModal(true);
+
+    try {
+      const res = await fetch("/api/chat/summarize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          clubId: activeClubId,
+          channel: channel,
+          hours: summaryHours
+        })
+      });
+      const data = await res.json();
+      setSummary(data.summary || "No summary could be generated.");
+    } catch (error) {
+      setSummary("Error connecting to AI service.");
+    } finally {
+      setIsSummarizing(false);
+    }
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -98,7 +150,6 @@ export default function ChatPage() {
       sender: user?.name || "Unknown",
       content: inputText || "Sent a file",
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      isOfficial: channel === "ANNOUNCEMENTS",
       fileUrl,
       fileType: file.type,
       fileName: file.name
@@ -121,29 +172,15 @@ export default function ChatPage() {
         </div>
         <div className={styles.channelList}>
           <button 
-            className={clsx(styles.channelBtn, styles.formalBtn, channel === "ANNOUNCEMENTS" && styles.activeFormal)}
-            onClick={() => setChannel("ANNOUNCEMENTS")}
+            className={clsx(styles.channelBtn, channel === "INFORMAL" && styles.activeChannel)}
+            onClick={() => setChannel("INFORMAL")}
           >
-            <Megaphone size={18} />
+            <MessageCircle size={18} />
             <div className={styles.channelInfo}>
-              <span className={styles.channelName}>#announcements</span>
-              <span className={styles.channelStatus}>Official updates only</span>
+              <span className={styles.channelName}>#informal-chat</span>
+              <span className={styles.channelStatus}>Public discussion</span>
             </div>
-            {!isTopRole && <Lock size={12} className={styles.lockIcon} />}
           </button>
-
-          {!isGeneralMember && (
-            <button 
-              className={clsx(styles.channelBtn, channel === "INFORMAL" && styles.activeChannel)}
-              onClick={() => setChannel("INFORMAL")}
-            >
-              <MessageCircle size={18} />
-              <div className={styles.channelInfo}>
-                <span className={styles.channelName}>#informal-chat</span>
-                <span className={styles.channelStatus}>Public discussion</span>
-              </div>
-            </button>
-          )}
           
           {isTopRole && (
             <button 
@@ -163,11 +200,21 @@ export default function ChatPage() {
       <section className={clsx(styles.chatWindow, "glass")}>
         <header className={styles.chatHeader}>
           <div className={styles.chatTitle}>
-            <h4>{channel === "INFORMAL" ? "#informal-chat" : channel === "FORMAL" ? "#formal-chat" : "#announcements"}</h4>
+            <h4>{channel === "INFORMAL" ? "#informal-chat" : "#formal-chat"}</h4>
             <div className={styles.separator} />
-            <span>{channel === "INFORMAL" ? "Casual brainstorming and discussion" : channel === "FORMAL" ? "Leadership group chat" : "Official club communications"}</span>
+            <span>{channel === "INFORMAL" ? "Casual brainstorming and discussion" : "Leadership group chat"}</span>
           </div>
           <div className={styles.headerActions}>
+            {channel === "FORMAL" && (
+              <button 
+                className={styles.summarizeBtn} 
+                onClick={handleSummarize}
+                title="AI Summary"
+              >
+                <Sparkles size={18} />
+                <span>AI Summary</span>
+              </button>
+            )}
             <Search size={18} />
             <MoreVertical size={18} />
           </div>
@@ -206,35 +253,88 @@ export default function ChatPage() {
         </div>
 
         <div className={styles.inputArea}>
-          {(channel !== "ANNOUNCEMENTS") || (channel === "ANNOUNCEMENTS" && isTopRole) ? (
-            <div className={clsx(styles.inputWrapper, "glass")}>
-              <button className={styles.attachBtn} onClick={() => fileInputRef.current?.click()}>
-                <Plus size={20} />
-              </button>
-              <input 
-                type="file" 
-                ref={fileInputRef} 
-                className={styles.hiddenInput} 
-                accept=".pdf,image/png,image/jpeg,video/*" 
-                onChange={handleFileUpload} 
-              />
-              <input 
-                type="text" 
-                placeholder={`Message #${channel === "ANNOUNCEMENTS" ? "announcements" : channel === "FORMAL" ? "formal-chat" : "informal-chat"}`} 
-                value={inputText}
-                onChange={(e) => setInputText(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleSend()}
-              />
-              <button className={styles.emojiBtn}><Smile size={20} /></button>
-              <button className={styles.sendBtn} onClick={handleSend}><Send size={18} /></button>
-            </div>
-          ) : (
-            <div className={styles.readOnlyNotice}>
-              <Lock size={14} /> Only coordinators and heads can post in this channel.
-            </div>
-          )}
+          <div className={clsx(styles.inputWrapper, "glass")}>
+            <button className={styles.attachBtn} onClick={() => fileInputRef.current?.click()}>
+              <Plus size={20} />
+            </button>
+            <input 
+              type="file" 
+              ref={fileInputRef} 
+              className={styles.hiddenInput} 
+              accept=".pdf,image/png,image/jpeg,video/*" 
+              onChange={handleFileUpload} 
+            />
+            <input 
+              type="text" 
+              placeholder={`Message #${channel === "FORMAL" ? "formal-chat" : "informal-chat"}`} 
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSend()}
+            />
+            <button className={styles.emojiBtn}><Smile size={20} /></button>
+            <button className={styles.sendBtn} onClick={handleSend}><Send size={18} /></button>
+          </div>
         </div>
       </section>
+
+      {/* AI Summary Modal */}
+      {showSummaryModal && (
+        <div className={styles.modalOverlay} onClick={() => setShowSummaryModal(false)}>
+          <div className={clsx(styles.summaryModal, "glass")} onClick={e => e.stopPropagation()}>
+            <div className={styles.modalHeader}>
+              <div className={styles.modalTitle}>
+                <BrainCircuit className={styles.sparkleIcon} />
+                <h3>Formal Chat Intelligence</h3>
+              </div>
+              <button className={styles.closeBtn} onClick={() => setShowSummaryModal(false)}>
+                <Plus style={{ transform: "rotate(45deg)" }} />
+              </button>
+            </div>
+
+            <div className={styles.modalBody}>
+              <div className={styles.rangeSelector}>
+                <label><CalendarDays size={14} /> Summary Range:</label>
+                <select 
+                  value={summaryHours} 
+                  onChange={(e) => setSummaryHours(Number(e.target.value))}
+                  disabled={isSummarizing}
+                >
+                  <option value={24}>Last 24 Hours</option>
+                  <option value={168}>Last 7 Days</option>
+                  <option value={720}>Last 30 Days</option>
+                </select>
+                <button 
+                  className={styles.refreshBtn} 
+                  onClick={handleSummarize}
+                  disabled={isSummarizing}
+                >
+                  {isSummarizing ? <Loader2 className={styles.spin} size={14} /> : "Update"}
+                </button>
+              </div>
+
+              <div className={styles.summaryContent}>
+                {isSummarizing ? (
+                  <div className={styles.loadingState}>
+                    <Loader2 className={styles.spin} size={32} />
+                    <p>Grok is analyzing your formal discussions...</p>
+                  </div>
+                ) : (
+                  <div className={styles.aiText}>
+                    {summary?.split('\n').map((line, i) => (
+                      <p key={i}>{line}</p>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className={styles.modalFooter}>
+              <p>Analysis powered by xAI Grok-Beta</p>
+              <button className={styles.doneBtn} onClick={() => setShowSummaryModal(false)}>Done</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
