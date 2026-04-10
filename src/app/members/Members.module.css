@@ -62,6 +62,49 @@
   color: var(--foreground);
 }
 
+.filterActive {
+  background: rgba(59, 130, 246, 0.1);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.filterMenu {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  width: 160px;
+  background: var(--card);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  overflow: hidden;
+  z-index: 100;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+  animation: slideIn 0.2s ease-out;
+}
+
+.filterMenuItem {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background: transparent;
+  border: none;
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.filterMenuItem:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--foreground);
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 /* Member Grid */
 .memberGrid {
   display: grid;
@@ -131,6 +174,53 @@
   border: none;
   color: var(--muted-foreground);
   cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.moreBtn:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--foreground);
+}
+
+.actionMenu {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  width: 180px;
+  background: var(--card);
+  border: 1px solid var(--glass-border);
+  border-radius: 10px;
+  padding: 0.5rem;
+  z-index: 100;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+  animation: slideIn 0.15s ease-out;
+}
+
+.actionItemDanger {
+  width: 100%;
+  padding: 0.625rem 0.75rem;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: #f87171;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.actionItemDanger:hover {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.actionItemDisabled {
+  padding: 0.625rem 0.75rem;
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  font-style: italic;
 }
 
 .cardMain h3 {

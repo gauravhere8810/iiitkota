@@ -25,11 +25,28 @@ interface Member {
   bio?: string;
 }
 
+const getRank = (role: string) => {
+  switch (role) {
+    case "FACULTY": return 1;
+    case "HEAD": return 2;
+    case "COORDINATOR": return 3;
+    case "CORE": return 4;
+    case "GENERAL": return 5;
+    default: return 99;
+  }
+};
+
 export default function MembersPage() {
-  const { activeClubId } = useAuth();
+  const { user, activeClubId } = useAuth();
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [filterRole, setFilterRole] = useState("ALL");
+  const [showFilterOpts, setShowFilterOpts] = useState(false);
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
+
+  const currentClubRole = user?.clubs.find(c => c.id === activeClubId)?.role || "GENERAL";
+  const currentRank = getRank(currentClubRole);
 
   useEffect(() => {
     if (activeClubId) {
@@ -43,11 +60,13 @@ export default function MembersPage() {
     }
   }, [activeClubId]);
 
-  const filteredMembers = members.filter(m => 
-    m.name.toLowerCase().includes(search.toLowerCase()) || 
-    m.email.toLowerCase().includes(search.toLowerCase()) ||
-    m.role.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredMembers = members.filter(m => {
+    const matchesSearch = m.name.toLowerCase().includes(search.toLowerCase()) || 
+                          m.email.toLowerCase().includes(search.toLowerCase()) ||
+                          m.role.toLowerCase().includes(search.toLowerCase());
+    const matchesFilter = filterRole === "ALL" || m.role === filterRole;
+    return matchesSearch && matchesFilter;
+  });
 
   return (
     <div className={styles.container}>
@@ -66,9 +85,27 @@ export default function MembersPage() {
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-          <button className={styles.filterBtn}>
-            <Filter size={18} />
-          </button>
+          <div style={{ position: "relative" }}>
+            <button 
+              className={clsx(styles.filterBtn, filterRole !== "ALL" && styles.filterActive)}
+              onClick={() => setShowFilterOpts(!showFilterOpts)}
+            >
+              <Filter size={18} /> {filterRole !== "ALL" && <span>{filterRole}</span>}
+            </button>
+            {showFilterOpts && (
+              <div className={styles.filterMenu}>
+                {["ALL", "FACULTY", "HEAD", "COORDINATOR", "CORE", "GENERAL"].map(role => (
+                  <button 
+                    key={role} 
+                    className={styles.filterMenuItem}
+                    onClick={() => { setFilterRole(role); setShowFilterOpts(false); }}
+                  >
+                    {role}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
@@ -87,7 +124,34 @@ export default function MembersPage() {
                 {member.role === "HEAD" || member.role === "FACULTY" ? <Shield size={12} /> : null}
                 {member.role}
               </div>
-              <button className={styles.moreBtn}><MoreHorizontal size={18} /></button>
+              <div style={{ position: "relative" }}>
+                <button 
+                  className={styles.moreBtn}
+                  onClick={() => setOpenDropdownId(openDropdownId === member.id ? null : member.id)}
+                >
+                  <MoreHorizontal size={18} />
+                </button>
+                {openDropdownId === member.id && (
+                  <div className={styles.actionMenu}>
+                    {currentRank < getRank(member.role) ? (
+                      <button 
+                        className={styles.actionItemDanger}
+                        onClick={() => {
+                          alert(`Simulated Action: Restricted ${member.name} from the club pipeline.`);
+                          setMembers(members.filter(m => m.id !== member.id));
+                          setOpenDropdownId(null);
+                        }}
+                      >
+                        Remove Member
+                      </button>
+                    ) : (
+                      <div className={styles.actionItemDisabled}>
+                        No administrative actions available
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className={styles.cardMain}>
