@@ -8,8 +8,8 @@ import {
   Mail, 
   Calendar, 
   Shield, 
-  MoreHorizontal,
-  Filter
+  Filter,
+  X
 } from "lucide-react";
 import styles from "./Members.module.css";
 import { clsx } from "clsx";
@@ -199,36 +199,44 @@ export default function MembersPage() {
       {/* View Profile Modal Overlay */}
       {viewingMember && (
         <div className={styles.modalOverlay} onClick={() => setViewingMember(null)}>
-          <div className={clsx(styles.modalContent, "glass")} onClick={e => e.stopPropagation()}>
-            <div className={styles.modalHeader}>
-              <div className={styles.avatarBig}>
+          <div className={clsx(styles.modalContentLarge, "glass")} onClick={e => e.stopPropagation()}>
+            <button className={styles.closeXBtn} onClick={() => setViewingMember(null)}>
+              <X size={24} />
+            </button>
+            <div className={styles.modalHeaderLarge}>
+              <div className={styles.avatarHuge}>
                 {viewingMember.avatar ? <img src={viewingMember.avatar} alt="Avatar" /> : viewingMember.name.charAt(0)}
               </div>
-              <div>
+              <div className={styles.modalHeaderInfo}>
                 <h2>{viewingMember.name}</h2>
-                <div className={styles.roleBadge} data-role={viewingMember.role} style={{ display: 'inline-flex', marginTop: '0.5rem' }}>
+                <div className={styles.roleBadge} data-role={viewingMember.role}>
                   {viewingMember.role}
+                </div>
+                <p className={styles.email}><Mail size={16}/> {viewingMember.email}</p>
+                <div className={styles.joinDate}>
+                  <Calendar size={16} /> 
+                  <span>Joined {format(new Date(viewingMember.joinedAt), "MMM yyyy")}</span>
                 </div>
               </div>
             </div>
-            <div className={styles.modalBody}>
-              <p className={styles.email}><Mail size={14}/> {viewingMember.email}</p>
-              <h4>About</h4>
-              <p className={styles.modalBio}>{viewingMember.bio || "No bio available."}</p>
+            <div className={styles.modalBodyLarge}>
+              <div className={styles.modalSection}>
+                <h4>About Me</h4>
+                <p className={styles.modalBio}>{viewingMember.bio || "No bio available."}</p>
+              </div>
               
-              <h4>Skills & Tags</h4>
-              {viewingMember.skills ? (
-                <div className={styles.tagListLarge}>
-                  {viewingMember.skills.split(',').map((skill, i) => (
-                     <span key={i} className={styles.tag}>{skill.trim()}</span>
-                  ))}
-                </div>
-              ) : (
-                <p className={styles.modalBio}>No tags available.</p>
-              )}
-            </div>
-            <div className={styles.modalFooter}>
-              <button className={styles.closeModalBtn} onClick={() => setViewingMember(null)}>Close</button>
+              <div className={styles.modalSection}>
+                <h4>Skills & Expertise</h4>
+                {viewingMember.skills ? (
+                  <div className={styles.tagListLarge}>
+                    {viewingMember.skills.split(',').map((skill, i) => (
+                       <span key={i} className={styles.tag}>{skill.trim()}</span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className={styles.modalBio}>No tags available.</p>
+                )}
+              </div>
             </div>
           </div>
         </div>
