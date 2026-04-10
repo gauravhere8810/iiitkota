@@ -60,32 +60,16 @@ export default function Home() {
         <span className={styles.tagline}>The College OS</span>
         <h1>Welcome to Modular Commons</h1>
         <p>A unified digital ecosystem for campus hierarchy, collaboration, and resource transparency.</p>
+        <div style={{ marginTop: '2rem' }}>
+          <button 
+            className="glass" 
+            style={{ padding: '1rem 2.5rem', borderRadius: '12px', fontSize: '1.25rem', color: 'var(--primary)', cursor: 'pointer', border: '1px solid var(--primary)', background: 'transparent' }} 
+            onClick={() => router.push('/login')}
+          >
+            Access Role Login Simulator <ArrowRight size={20} style={{ display: 'inline', marginLeft: '8px' }} />
+          </button>
+        </div>
       </header>
-
-      <div className={styles.grid}>
-        {PROXY_ROLES.map((role) => {
-          const Icon = role.icon;
-          return (
-            <div 
-              key={role.email} 
-              className={clsx(styles.card, "glass")}
-              onClick={() => handleSelectRole(role.email)}
-            >
-              <div 
-                className={styles.iconWrapper} 
-                style={{ backgroundColor: `${role.color}15`, color: role.color }}
-              >
-                <Icon size={32} />
-              </div>
-              <h3>{role.title}</h3>
-              <p>{role.description}</p>
-              <div className={styles.cardFooter}>
-                Enter Dashboard <ArrowRight size={16} />
-              </div>
-            </div>
-          );
-        })}
-      </div>
     </div>
   );
 }

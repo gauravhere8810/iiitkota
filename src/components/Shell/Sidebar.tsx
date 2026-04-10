@@ -81,11 +81,14 @@ export default function Sidebar() {
       <nav className={styles.nav}>
         {navItems.map((item) => {
           const Icon = item.icon;
-          const isActive = pathname.startsWith(item.href);
+          const href = (item.name === "Dashboard" && user?.role) 
+            ? `/dashboard/${user.role.toLowerCase().replace("_", "-")}` 
+            : item.href;
+          const isActive = pathname === href || (item.name === "Dashboard" && pathname.startsWith("/dashboard/"));
           return (
             <Link 
               key={item.href} 
-              href={item.href} 
+              href={href} 
               className={clsx(styles.navItem, isActive && styles.navActive)}
             >
               <Icon size={20} />
