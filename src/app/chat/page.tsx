@@ -11,7 +11,8 @@ import {
   Smile, 
   Plus,
   ArrowRight,
-  Search
+  Search,
+  FileText
 } from "lucide-react";
 import styles from "./Chat.module.css";
 import { clsx } from "clsx";
@@ -22,6 +23,9 @@ interface Message {
   content: string;
   timestamp: string;
   isOfficial?: boolean;
+  fileUrl?: string;
+  fileType?: string;
+  fileName?: string;
 }
 
 export default function ChatPage() {
@@ -29,6 +33,7 @@ export default function ChatPage() {
   const [channel, setChannel] = useState<"INFORMAL" | "FORMAL">("INFORMAL");
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState("");
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const activeClub = user?.clubs.find(c => c.id === activeClubId);
   const canPostFormal = activeClub?.role === "HEAD" || activeClub?.role === "COORDINATOR" || activeClub?.role === "FACULTY";
@@ -70,6 +75,31 @@ export default function ChatPage() {
     
     // Simulate real-time feed update for demo logic
     console.log("CHAT_NEW event triggered");
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const fileUrl = URL.createObjectURL(file);
+    const newMessage: Message = {
+      id: Date.now().toString(),
+      sender: user?.name || "Unknown",
+      content: inputText || "Sent a file",
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      isOfficial: channel === "FORMAL",
+      fileUrl,
+      fileType: file.type,
+      fileName: file.name
+    };
+    
+    setMessages([...messages, newMessage]);
+    setInputText("");
+    
+    // Reset input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
   };
 
   return (
@@ -130,6 +160,22 @@ export default function ChatPage() {
                   {msg.isOfficial && <span className={styles.officialBadge}>OFFICIAL</span>}
                 </div>
                 <div className={styles.messageText}>{msg.content}</div>
+                {msg.fileUrl && (
+                  <div className={styles.attachmentContainer}>
+                    {msg.fileType?.startsWith('image/') && (
+                      <img src={msg.fileUrl} alt="Attached image" className={styles.imageAttachment} />
+                    )}
+                    {msg.fileType?.startsWith('video/') && (
+                      <video src={msg.fileUrl} controls className={styles.videoAttachment} />
+                    )}
+                    {!msg.fileType?.startsWith('image/') && !msg.fileType?.startsWith('video/') && (
+                      <a href={msg.fileUrl} download={msg.fileName} className={styles.documentAttachment}>
+                        <FileText size={18} />
+                        <span className={styles.documentName}>{msg.fileName || "Document.pdf"}</span>
+                      </a>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           ))}
@@ -138,7 +184,16 @@ export default function ChatPage() {
         <div className={styles.inputArea}>
           {(channel === "INFORMAL" && !isGeneralMember) || (channel === "FORMAL" && canPostFormal) ? (
             <div className={clsx(styles.inputWrapper, "glass")}>
-              <button className={styles.attachBtn}><Plus size={20} /></button>
+              <button className={styles.attachBtn} onClick={() => fileInputRef.current?.click()}>
+                <Plus size={20} />
+              </button>
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                className={styles.hiddenInput} 
+                accept=".pdf,image/png,image/jpeg,video/*" 
+                onChange={handleFileUpload} 
+              />
               <input 
                 type="text" 
                 placeholder={channel === "FORMAL" ? "Broadcasting official message..." : "Message #informal-chat"} 
