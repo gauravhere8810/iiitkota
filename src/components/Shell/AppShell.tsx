@@ -7,6 +7,8 @@ import styles from "./AppShell.module.css";
 import { useAuth } from "@/context/AuthContext";
 import { Loader2 } from "lucide-react";
 
+import CommandCenterChat from "@/components/Chat/CommandCenterChat";
+
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const { isLoading } = useAuth();
 
@@ -30,6 +32,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </main>
       </div>
+      <CommandCenterChat />
     </div>
   );
 }

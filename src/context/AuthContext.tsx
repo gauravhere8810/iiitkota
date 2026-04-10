@@ -63,12 +63,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(true);
     let realClubId = "club-1";
     try {
-      const res = await fetch(`/api/auth/proxy?email=coding.head@uni.edu`);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2000);
+      const res = await fetch(`/api/auth/proxy?email=coding.head@uni.edu`, { signal: controller.signal });
+      clearTimeout(timeoutId);
       const data = await res.json();
       if (data.user && data.user.clubs.length > 0) {
         realClubId = data.user.clubs[0].id;
       }
-    } catch(e) {}
+    } catch(e) {
+      console.warn("Proxy fetch aborted or failed, falling back to club-1", e);
+    }
     
     const mockUser: User = {
       id: `mock-${role.toLowerCase()}`,
