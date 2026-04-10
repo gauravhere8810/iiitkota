@@ -22,12 +22,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className={styles.shell}>
       <Sidebar />
-      <Header />
-      <main className={styles.main}>
-        <div className={styles.content}>
-          {children}
-        </div>
-      </main>
+      <div className={styles.rightContent}>
+        <Header />
+        <main className={styles.main}>
+          <div className={styles.content}>
+            {children}
+          </div>
+        </main>
+      </div>
     </div>
   );
 }

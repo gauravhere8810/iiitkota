@@ -3,19 +3,26 @@
   display: flex;
 }
 
-.main {
+.rightContent {
   flex: 1;
   margin-left: var(--sidebar-width);
-  margin-top: var(--header-height);
-  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 100vh;
+}
+
+.main {
+  flex: 1;
+  padding: 2.5rem;
   background: radial-gradient(circle at top right, rgba(59, 130, 246, 0.05), transparent 40%),
               radial-gradient(circle at bottom left, rgba(59, 130, 246, 0.03), transparent 30%);
 }
 
 .content {
-  max-width: 1400px;
+  max-width: 1200px;
   margin: 0 auto;
-  animation: fadeIn 0.5s ease-out;
+  animation: fadeIn 0.5s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .loadingScreen {
