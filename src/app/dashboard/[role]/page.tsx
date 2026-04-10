@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import styles from "./RoleDashboard.module.css";
 import { clsx } from "clsx";
+import { supabase } from "@/lib/supabase";
 
 interface PageProps {
   params: Promise<{ role: string }>;
@@ -124,6 +125,65 @@ export default function RoleDashboard({ params }: PageProps) {
              </div>
           </div>
         </div>
+        {roleEnum === "CLUB_HEAD" && <ClubHeadEventsFeed />}
+      </div>
+    </div>
+  );
+}
+
+function ClubHeadEventsFeed() {
+  const [events, setEvents] = React.useState<any[]>([]);
+
+  React.useEffect(() => {
+    const fetchEvents = async () => {
+      try {
+        const { data } = await supabase.from("events").select("*").order("created_at", { ascending: false }).limit(10);
+        if (data) setEvents(data);
+      } catch (e) {}
+    };
+    fetchEvents();
+
+    const channel = supabase
+      .channel("events-feed-channel")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "events" },
+        (payload: any) => {
+          setEvents((curr) => [payload.new, ...curr]);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [supabase]);
+
+  return (
+    <div className={clsx(styles.card, "glass")} style={{ gridColumn: "1 / -1", border: "1px solid rgba(59, 130, 246, 0.3)" }}>
+      <div className={styles.cardHeader} style={{ backgroundColor: "rgba(59, 130, 246, 0.1)" }}>
+        <Activity size={20} color="#3b82f6" />
+        <h3 style={{ color: "#3b82f6" }}>Live Member Event Submissions</h3>
+      </div>
+      <div className={styles.content}>
+        {events.length === 0 ? (
+          <p className={styles.empty}>Waiting for core members to submit new events...</p>
+        ) : (
+          <ul className={styles.taskList} style={{ display: "flex", flexDirection: "column", gap: "1rem", marginTop: "1rem" }}>
+            {events.map((ev, i) => (
+              <li key={ev.id || i} style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", padding: "1rem", background: "rgba(255,255,255,0.05)", borderRadius: "12px", border: "1px solid rgba(255,255,255,0.1)" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", width: "100%", marginBottom: "0.25rem" }}>
+                  <strong style={{ fontSize: "1.1rem", color: "white" }}>{ev.title || "Untitled Event"}</strong>
+                  <span style={{ fontSize: "0.75rem", color: "#10b981", background: "rgba(16, 185, 129, 0.2)", padding: "2px 8px", borderRadius: "100px" }}>NEW</span>
+                </div>
+                <p style={{ color: "var(--muted-foreground)", fontSize: "0.875rem", marginBottom: "0.75rem" }}>{ev.description || "No description provided."}</p>
+                <div style={{ display: "flex", gap: "1rem", fontSize: "0.75rem", color: "rgba(255,255,255,0.6)" }}>
+                  <span style={{ display: "flex", alignItems: "center", gap: "4px" }}><User size={12} /> {ev.created_by_name || "Club Member"}</span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </div>
   );

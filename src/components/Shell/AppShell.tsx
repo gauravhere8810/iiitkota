@@ -11,12 +11,18 @@ import CommandCenterChat from "@/components/Chat/CommandCenterChat";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const { isLoading } = useAuth();
+  const [overrideWait, setOverrideWait] = React.useState(false);
 
-  if (isLoading) {
+  React.useEffect(() => {
+    const forceLoad = setTimeout(() => setOverrideWait(true), 2500);
+    return () => clearTimeout(forceLoad);
+  }, []);
+
+  if (isLoading && !overrideWait) {
     return (
       <div className={styles.loadingScreen}>
         <Loader2 className={styles.spinner} size={48} />
-        <span className={styles.loadingText}>Initializing Modular Commons...</span>
+        <span className={styles.loadingText}>Initializing Modular Framework...</span>
       </div>
     );
   }
