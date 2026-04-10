@@ -10,7 +10,8 @@ import {
   MoreVertical, 
   Smile, 
   Plus,
-  ArrowRight
+  ArrowRight,
+  Search
 } from "lucide-react";
 import styles from "./Chat.module.css";
 import { clsx } from "clsx";
@@ -30,7 +31,7 @@ export default function ChatPage() {
   const [inputText, setInputText] = useState("");
 
   const activeClub = user?.clubs.find(c => c.id === activeClubId);
-  const canPostFormal = activeClub?.role === "HEAD" || activeClub?.role === "COORDINATOR";
+  const canPostFormal = activeClub?.role === "HEAD" || activeClub?.role === "COORDINATOR" || activeClub?.role === "FACULTY";
 
   useEffect(() => {
     // Mocking messages for demo

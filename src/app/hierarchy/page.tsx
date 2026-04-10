@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import styles from "./Hierarchy.module.css";
 import { clsx } from "clsx";
+import Link from "next/link";
 
 const HIERARCHY = [
   {
@@ -94,7 +95,9 @@ export default function HierarchyPage() {
           <h4>Auditable Transitions</h4>
           <p>Every role promotion, demotion, or assignment is logged in the permanent audit timeline. Role-based actions are cryptographically gated in the backend ecosystem.</p>
         </div>
-        <button className={styles.auditBtn}>View Audit Logs</button>
+        <Link href="/feed">
+          <button className={styles.auditBtn}>View Audit Logs</button>
+        </Link>
       </div>
     </div>
   );

@@ -11,7 +11,8 @@ import {
   Vote, 
   Filter,
   Users,
-  Clock
+  Clock,
+  Activity
 } from "lucide-react";
 import styles from "./Feed.module.css";
 import { clsx } from "clsx";

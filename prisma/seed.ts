@@ -53,7 +53,10 @@ async function main() {
   // 4. Create Memberships
   await prisma.membership.createMany({
     data: [
-      { userId: head.id, clubId: coding.id, role: "HEAD", status: "ACTIVE" }, // Head is technically over everything but let's give membership
+      { userId: head.id, clubId: coding.id, role: "HEAD", status: "ACTIVE" }, 
+      { userId: head.id, clubId: robotics.id, role: "HEAD", status: "ACTIVE" },
+      { userId: faculty.id, clubId: coding.id, role: "FACULTY", status: "ACTIVE" },
+      { userId: faculty.id, clubId: robotics.id, role: "FACULTY", status: "ACTIVE" },
       { userId: codingHead.id, clubId: coding.id, role: "HEAD", status: "ACTIVE" },
       { userId: photoHead.id, clubId: photography.id, role: "HEAD", status: "ACTIVE" },
       { userId: codingCore.id, clubId: coding.id, role: "CORE", status: "ACTIVE" },

@@ -91,12 +91,71 @@
 
 .chevron {
   color: var(--muted-foreground);
+  transition: transform 0.2s ease;
 }
 
-/* Dropdown would be hidden/shown logic here, abbreviated for now */
+.chevronRotate {
+  transform: rotate(180deg);
+}
+
 .clubDropdown {
-  display: none;
-  /* position: absolute; top: 100%; left: 0; width: 100%; ... */
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  left: 0;
+  width: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  z-index: 100;
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+  animation: slideIn 0.2s ease-out;
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.dropdownItem {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+  padding: 0.75rem 1rem;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--glass-border);
+  color: var(--foreground);
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.dropdownItem:last-child {
+  border-bottom: none;
+}
+
+.dropdownItem:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.dropdownItem.active {
+  background: rgba(59, 130, 246, 0.1);
+  color: var(--primary);
+}
+
+.dropdownName {
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.roleTag {
+  font-size: 0.625rem;
+  font-weight: 800;
+  padding: 0.125rem 0.375rem;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  text-transform: uppercase;
 }
 
 .nav {
@@ -166,7 +225,13 @@
   font-weight: 600;
 }
 
-.userEmail {
-  font-size: 0.75rem;
-  color: var(--muted-foreground);
+.userProfileLink {
+  text-decoration: none;
+  color: inherit;
+  display: block;
+}
+
+.userProfileLink:hover .userProfile {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
 }

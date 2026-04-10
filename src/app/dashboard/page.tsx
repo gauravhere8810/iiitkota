@@ -29,7 +29,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
 
   const activeClub = user?.clubs.find(c => c.id === activeClubId);
-  const isLeader = activeClub?.role === "HEAD" || activeClub?.role === "COORDINATOR";
+  const isLeader = activeClub?.role === "HEAD" || activeClub?.role === "COORDINATOR" || activeClub?.role === "FACULTY";
 
   useEffect(() => {
     if (activeClubId) {
