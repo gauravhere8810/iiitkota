@@ -10,6 +10,20 @@
   padding: 2rem;
   color: white;
   font-family: var(--font-outfit);
+  position: relative;
+  overflow: hidden;
+}
+
+.greenCloud {
+  position: absolute;
+  top: -15%;
+  left: -10%;
+  width: 50vw;
+  height: 50vh;
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.25) 0%, transparent 70%);
+  filter: blur(100px);
+  z-index: 0;
+  pointer-events: none;
 }
 
 .hero {

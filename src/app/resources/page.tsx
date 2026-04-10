@@ -37,6 +37,29 @@ export default function ResourcesPage() {
   // States for Booking Modal
   const [selectedResource, setSelectedResource] = useState<Resource | null>(null);
   const [showQR, setShowQR] = useState<Resource | null>(null);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newType, setNewType] = useState("PHYSICAL");
+  const [newLocation, setNewLocation] = useState("");
+
+  const activeClub = user?.clubs.find(c => c.id === activeClubId);
+  const isAuthorized = activeClub?.role === "FACULTY" || activeClub?.role === "HEAD" || user?.role === "HEAD" || user?.role === "FACULTY";
+
+  const handleCreateResource = async () => {
+    if (!newName || !activeClubId) return;
+    const res = await fetch("/api/resources", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: newName, type: newType, location: newLocation, clubId: activeClubId })
+    });
+    const data = await res.json();
+    if (data.resource) {
+      setResources([data.resource, ...resources]);
+      setShowAddModal(false);
+      setNewName("");
+      setNewLocation("");
+    }
+  };
 
   useEffect(() => {
     if (activeClubId) {
@@ -83,6 +106,14 @@ export default function ResourcesPage() {
                 {f}
               </button>
             ))}
+            {isAuthorized && (
+              <button 
+                className={clsx(styles.filterBtn, styles.addBtn)} 
+                onClick={() => setShowAddModal(true)}
+              >
+                + Add Resource
+              </button>
+            )}
           </div>
         </div>
       </header>
@@ -183,6 +214,36 @@ export default function ResourcesPage() {
                 alert("Booking Request Sent! Triggering live feed update...");
                 setSelectedResource(null);
               }}>Confirm Booking</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Add Resource Modal Simulation */}
+      {showAddModal && (
+        <div className={styles.modalOverlay} onClick={() => setShowAddModal(false)}>
+          <div className={clsx(styles.bookingModal, "glass")} onClick={e => e.stopPropagation()}>
+            <h3>Add New Resource</h3>
+            <div className={styles.bookingForm}>
+              <div className={styles.formGroup}>
+                <label>Resource Name</label>
+                <input type="text" placeholder="e.g. 3D Printer" value={newName} onChange={e => setNewName(e.target.value)} />
+              </div>
+              <div className={styles.formGroup}>
+                <label>Resource Type</label>
+                <select value={newType} onChange={e => setNewType(e.target.value)} style={{ padding: "0.75rem", borderRadius: "8px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "white" }}>
+                  <option value="PHYSICAL">Physical Asset</option>
+                  <option value="SPACE">Workspace</option>
+                  <option value="DIGITAL">Digital Access</option>
+                </select>
+              </div>
+              <div className={styles.formGroup}>
+                <label>Location</label>
+                <input type="text" placeholder="e.g. Lab 4B" value={newLocation} onChange={e => setNewLocation(e.target.value)} />
+              </div>
+            </div>
+            <div className={styles.modalActions}>
+              <button className={styles.cancelBtn} onClick={() => setShowAddModal(false)}>Cancel</button>
+              <button className={styles.confirmBtn} style={{ background: "var(--primary)" }} onClick={handleCreateResource}>Create Resource</button>
             </div>
           </div>
         </div>
