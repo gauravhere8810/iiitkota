@@ -41,32 +41,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const loginAsRole = async (role: Role) => {
     setIsLoading(true);
-    let realClubId = "club-1";
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 2000);
-      const res = await fetch(`/api/auth/proxy?email=coding.head@uni.edu`, { signal: controller.signal });
-      clearTimeout(timeoutId);
-      const data = await res.json();
-      if (data.user && data.user.clubs.length > 0) {
-        realClubId = data.user.clubs[0].id;
+      let realClubId = "club-1";
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2000);
+        const res = await fetch(`/api/auth/proxy?email=coding.head@uni.edu`, { signal: controller.signal });
+        clearTimeout(timeoutId);
+        const data = await res.json();
+        if (data.user && data.user.clubs.length > 0) {
+          realClubId = data.user.clubs[0].id;
+        }
+      } catch(e) {
+        console.warn("Proxy fetch aborted or failed, falling back to club-1", e);
       }
-    } catch(e) {
-      console.warn("Proxy fetch aborted or failed, falling back to club-1", e);
+      
+      const mockUser: User = {
+        id: `mock-${(role || "STUDENT").toLowerCase()}`,
+        name: `Mock ${(role || "STUDENT").replace("_", " ")}`,
+        email: `${(role || "STUDENT").toLowerCase()}@iiitkota.ac.in`,
+        role: role || "STUDENT",
+        clubs: [{ id: realClubId, name: "Modular App Club", role: role || "STUDENT" }],
+      };
+      
+      setUser(mockUser);
+      if (mockUser.clubs.length > 0) {
+        setActiveClubId(mockUser.clubs[0].id);
+      }
+    } finally {
+      setIsLoading(false);
     }
-    
-    const mockUser: User = {
-      id: `mock-${role.toLowerCase()}`,
-      name: `Mock ${role.replace("_", " ")}`,
-      email: `${role.toLowerCase()}@iiitkota.ac.in`,
-      role: role,
-      clubs: [{ id: realClubId, name: "Modular App Club", role: role }],
-    };
-    setUser(mockUser);
-    if (mockUser.clubs.length > 0) {
-      setActiveClubId(mockUser.clubs[0].id);
-    }
-    setIsLoading(false);
   };
 
   const logout = () => {
