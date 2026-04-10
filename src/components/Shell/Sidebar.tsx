@@ -34,6 +34,7 @@ const navItems = [
 
 export default function Sidebar() {
   const { user, activeClubId, setActiveClubId } = useAuth();
+  const [isDropdownOpen, setIsDropdownOpen] = React.useState(false);
   const pathname = usePathname();
 
   const activeClub = user?.clubs.find(c => c.id === activeClubId);
@@ -46,27 +47,35 @@ export default function Sidebar() {
       </div>
 
       <div className={styles.clubSwitcher}>
-        <button className={styles.clubButton}>
-          <div className={styles.clubAccent} style={{ backgroundColor: "#3b82f6" }} />
+        <button 
+          className={styles.clubButton}
+          onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+        >
+          <div className={styles.clubAccent} style={{ backgroundColor: activeClub?.id ? (activeClub as any).accentColor || "#3b82f6" : "#94a3b8" }} />
           <div className={styles.clubInfo}>
             <span className={styles.clubName}>{activeClub?.name || "Select Club"}</span>
             <span className={styles.clubRole}>{activeClub?.role || "Member"}</span>
           </div>
-          <ChevronDown size={16} className={styles.chevron} />
+          <ChevronDown size={16} className={clsx(styles.chevron, isDropdownOpen && styles.chevronRotate)} />
         </button>
         
-        <div className={styles.clubDropdown}>
-          {user?.clubs.map((club) => (
-            <button 
-              key={club.id} 
-              className={clsx(styles.dropdownItem, activeClubId === club.id && styles.active)}
-              onClick={() => setActiveClubId(club.id)}
-            >
-              {club.name}
-              <span className={styles.roleTag}>{club.role}</span>
-            </button>
-          ))}
-        </div>
+        {isDropdownOpen && (
+          <div className={clsx(styles.clubDropdown, "glass")}>
+            {user?.clubs.map((club) => (
+              <button 
+                key={club.id} 
+                className={clsx(styles.dropdownItem, activeClubId === club.id && styles.active)}
+                onClick={() => {
+                  setActiveClubId(club.id);
+                  setIsDropdownOpen(false);
+                }}
+              >
+                <div className={styles.dropdownName} style={{ color: (club as any).accentColor }}>{club.name}</div>
+                <span className={styles.roleTag}>{club.role}</span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       <nav className={styles.nav}>
@@ -91,15 +100,17 @@ export default function Sidebar() {
           <Settings size={20} />
           <span>Settings</span>
         </Link>
-        <div className={styles.userProfile}>
-          <div className={styles.avatar}>
-            {user?.name.charAt(0)}
+        <Link href="/profile" className={styles.userProfileLink}>
+          <div className={styles.userProfile}>
+            <div className={styles.avatar}>
+              {user?.name.charAt(0)}
+            </div>
+            <div className={styles.userDetails}>
+              <span className={styles.userName}>{user?.name}</span>
+              <span className={styles.userEmail}>{user?.email}</span>
+            </div>
           </div>
-          <div className={styles.userDetails}>
-            <span className={styles.userName}>{user?.name}</span>
-            <span className={styles.userEmail}>{user?.email}</span>
-          </div>
-        </div>
+        </Link>
       </div>
     </aside>
   );
