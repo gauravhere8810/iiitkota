@@ -25,7 +25,8 @@ export async function GET(request: Request) {
     avatar: m.user.avatar,
     role: m.role,
     joinedAt: m.createdAt,
-    bio: m.user.bio
+    bio: m.user.bio,
+    skills: m.user.skills
   }));
 
   return NextResponse.json({ members: formattedMembers });

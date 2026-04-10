@@ -36,19 +36,22 @@ async function main() {
 
   // 3. Create Users (Proxy Users)
   const usersData = [
-    { name: "Dr. Alice Smith", email: "head@uni.edu", bio: "Vice Chancellor of Modular University", skills: "Leadership, Strategy" },
-    { name: "Prof. Bob Jones", email: "faculty@uni.edu", bio: "In-charge of Studen Affairs", skills: "Mentorship, Planning" },
-    { name: "Charlie Dev", email: "coding.head@uni.edu", bio: "Full-stack developer and competitive programmer", skills: "Next.js, Rust, Algorithms" },
-    { name: "Dana Photo", email: "photo.head@uni.edu", bio: "Professional photographer and visual artist", skills: "Adobe Suite, Composition" },
-    { name: "Eve Coder", email: "coding.core@uni.edu", bio: "Frontend enthusiast", skills: "React, CSS" },
-    { name: "Frank Student", email: "student@uni.edu", bio: "Exploring various interests", skills: "Curiosity" },
+    { name: "Dr. Alice Smith", email: "head@uni.edu", bio: "Vice Chancellor of Modular University", skills: "Leadership, Strategy, Vision" },
+    { name: "Prof. Bob Jones", email: "faculty@uni.edu", bio: "In-charge of Student Affairs", skills: "Mentorship, Planning, Operations" },
+    { name: "Charlie Dev", email: "coding.head@uni.edu", bio: "Full-stack developer and competitive programmer", skills: "Next.js, Rust, Algorithms, System Design" },
+    { name: "Dana Photo", email: "photo.head@uni.edu", bio: "Professional photographer and visual artist", skills: "Adobe Suite, Composition, Color Grading" },
+    { name: "Eve Coder", email: "coding.core@uni.edu", bio: "Frontend enthusiast pushing interactive bounds.", skills: "React, CSS, Animations, Three.js" },
+    { name: "Frank Student", email: "student@uni.edu", bio: "Exploring various technical interests.", skills: "Curiosity, Python, Basic HTML" },
+    { name: "Grace Hacker", email: "grace@uni.edu", bio: "Cybersecurity enthusiast and CTF player.", skills: "Kali Linux, Penetration Testing, Networking" },
+    { name: "Henry UI", email: "henry@uni.edu", bio: "UI/UX Designer who loves dark mode.", skills: "Figma, User Research, Prototyping" },
+    { name: "Ivy Data", email: "ivy@uni.edu", bio: "ML researcher analyzing big datasets.", skills: "PyTorch, Pandas, Data Visualization" },
   ];
 
   const users = await Promise.all(
     usersData.map((u) => prisma.user.create({ data: u }))
   );
 
-  const [head, faculty, codingHead, photoHead, codingCore, generalStudent] = users;
+  const [head, faculty, codingHead, photoHead, codingCore, generalStudent, grace, henry, ivy] = users;
 
   // 4. Create Memberships
   await prisma.membership.createMany({
@@ -62,6 +65,9 @@ async function main() {
       { userId: codingCore.id, clubId: coding.id, role: "CORE", status: "ACTIVE" },
       { userId: generalStudent.id, clubId: coding.id, role: "GENERAL", status: "ACTIVE" },
       { userId: generalStudent.id, clubId: photography.id, role: "GENERAL", status: "ACTIVE" },
+      { userId: grace.id, clubId: coding.id, role: "CORE", status: "ACTIVE" },
+      { userId: henry.id, clubId: coding.id, role: "GENERAL", status: "ACTIVE" },
+      { userId: ivy.id, clubId: coding.id, role: "COORDINATOR", status: "ACTIVE" },
     ],
   });
 

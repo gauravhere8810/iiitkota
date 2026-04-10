@@ -23,6 +23,7 @@ interface Member {
   role: string;
   joinedAt: string;
   bio?: string;
+  skills?: string;
 }
 
 const getRank = (role: string) => {
@@ -44,6 +45,7 @@ export default function MembersPage() {
   const [filterRole, setFilterRole] = useState("ALL");
   const [showFilterOpts, setShowFilterOpts] = useState(false);
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
+  const [viewingMember, setViewingMember] = useState<Member | null>(null);
 
   const currentClubRole = user?.clubs.find(c => c.id === activeClubId)?.role || "GENERAL";
   const currentRank = getRank(currentClubRole);
@@ -160,6 +162,14 @@ export default function MembersPage() {
                 <Mail size={14} /> <span>{member.email}</span>
               </div>
               <p className={styles.bio}>{member.bio || "No bio provided"}</p>
+              {member.skills && (
+                <div className={styles.tagList}>
+                  {member.skills.split(',').slice(0, 3).map((skill, idx) => (
+                    <span key={idx} className={styles.tag}>{skill.trim()}</span>
+                  ))}
+                  {member.skills.split(',').length > 3 && <span className={styles.tag}>+{member.skills.split(',').length - 3}</span>}
+                </div>
+              )}
             </div>
 
             <div className={styles.cardFooter}>
@@ -167,7 +177,12 @@ export default function MembersPage() {
                 <Calendar size={14} /> 
                 <span>Joined {format(new Date(member.joinedAt), "MMM yyyy")}</span>
               </div>
-              <button className={styles.profileBtn}>View Profile</button>
+              <button 
+                className={styles.profileBtn}
+                onClick={() => setViewingMember(member)}
+              >
+                View Profile
+              </button>
             </div>
           </div>
         ))}
@@ -180,6 +195,44 @@ export default function MembersPage() {
           </div>
         )}
       </div>
+
+      {/* View Profile Modal Overlay */}
+      {viewingMember && (
+        <div className={styles.modalOverlay} onClick={() => setViewingMember(null)}>
+          <div className={clsx(styles.modalContent, "glass")} onClick={e => e.stopPropagation()}>
+            <div className={styles.modalHeader}>
+              <div className={styles.avatarBig}>
+                {viewingMember.avatar ? <img src={viewingMember.avatar} alt="Avatar" /> : viewingMember.name.charAt(0)}
+              </div>
+              <div>
+                <h2>{viewingMember.name}</h2>
+                <div className={styles.roleBadge} data-role={viewingMember.role} style={{ display: 'inline-flex', marginTop: '0.5rem' }}>
+                  {viewingMember.role}
+                </div>
+              </div>
+            </div>
+            <div className={styles.modalBody}>
+              <p className={styles.email}><Mail size={14}/> {viewingMember.email}</p>
+              <h4>About</h4>
+              <p className={styles.modalBio}>{viewingMember.bio || "No bio available."}</p>
+              
+              <h4>Skills & Tags</h4>
+              {viewingMember.skills ? (
+                <div className={styles.tagListLarge}>
+                  {viewingMember.skills.split(',').map((skill, i) => (
+                     <span key={i} className={styles.tag}>{skill.trim()}</span>
+                  ))}
+                </div>
+              ) : (
+                <p className={styles.modalBio}>No tags available.</p>
+              )}
+            </div>
+            <div className={styles.modalFooter}>
+              <button className={styles.closeModalBtn} onClick={() => setViewingMember(null)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
