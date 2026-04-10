@@ -2,7 +2,15 @@
 
 import React, { createContext, useContext, useState, useEffect } from "react";
 
-export type Role = "HEAD" | "COORDINATOR" | "CORE" | "GENERAL" | "FACULTY";
+export type Role = "SAC_HEAD" | "SAC_MEMBER" | "CLUB_HEAD" | "CORE_MEMBER" | "STUDENT";
+
+export const ROLE_HIERARCHY: Record<Role, number> = {
+  SAC_HEAD: 5,
+  SAC_MEMBER: 4,
+  CLUB_HEAD: 3,
+  CORE_MEMBER: 2,
+  STUDENT: 1,
+};
 
 interface User {
   id: string;
@@ -18,6 +26,7 @@ interface AuthContextType {
   activeClubId: string | null;
   setActiveClubId: (id: string) => void;
   loginAs: (email: string) => Promise<void>;
+  loginAsRole: (role: Role) => Promise<void>;
   logout: () => void;
   isLoading: boolean;
 }
@@ -50,15 +59,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const loginAsRole = async (role: Role) => {
+    setIsLoading(true);
+    let realClubId = "club-1";
+    try {
+      const res = await fetch(`/api/auth/proxy?email=coding.head@uni.edu`);
+      const data = await res.json();
+      if (data.user && data.user.clubs.length > 0) {
+        realClubId = data.user.clubs[0].id;
+      }
+    } catch(e) {}
+    
+    const mockUser: User = {
+      id: `mock-${role.toLowerCase()}`,
+      name: `Mock ${role.replace("_", " ")}`,
+      email: `${role.toLowerCase()}@iiitkota.ac.in`,
+      role: role,
+      clubs: [{ id: realClubId, name: "Modular App Club", role: role }],
+    };
+    setUser(mockUser);
+    if (mockUser.clubs.length > 0) {
+      setActiveClubId(mockUser.clubs[0].id);
+    }
+    setIsLoading(false);
+  };
+
   const logout = () => {
     setUser(null);
     setActiveClubId(null);
+    localStorage.removeItem("modular_user_role");
   };
 
   useEffect(() => {
     // Check local storage or default to first seed user for demo
     const savedUser = localStorage.getItem("modular_user");
-    if (savedUser) {
+    const savedRole = localStorage.getItem("modular_user_role") as Role;
+    if (savedRole) {
+      loginAsRole(savedRole);
+    } else if (savedUser) {
       loginAs(savedUser);
     } else {
       setIsLoading(false);
@@ -68,13 +106,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (user) {
       localStorage.setItem("modular_user", user.email);
+      localStorage.setItem("modular_user_role", user.role);
     } else {
       localStorage.removeItem("modular_user");
+      localStorage.removeItem("modular_user_role");
     }
   }, [user]);
 
   return (
-    <AuthContext.Provider value={{ user, activeClubId, setActiveClubId, loginAs, logout, isLoading }}>
+    <AuthContext.Provider value={{ user, activeClubId, setActiveClubId, loginAs, loginAsRole, logout, isLoading }}>
       {children}
     </AuthContext.Provider>
   );

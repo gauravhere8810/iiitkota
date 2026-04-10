@@ -43,7 +43,7 @@ export default function ResourcesPage() {
   const [newLocation, setNewLocation] = useState("");
 
   const activeClub = user?.clubs.find(c => c.id === activeClubId);
-  const isAuthorized = activeClub?.role === "FACULTY" || activeClub?.role === "HEAD" || user?.role === "HEAD" || user?.role === "FACULTY";
+  const isAuthorized = activeClub?.role === "FACULTY" || activeClub?.role === "HEAD" || user?.role === "HEAD" || user?.role === "FACULTY" || user?.role === "SAC_HEAD" || user?.role === "CLUB_HEAD" || user?.role === "SAC_MEMBER";
 
   const handleCreateResource = async () => {
     if (!newName || !activeClubId) return;
