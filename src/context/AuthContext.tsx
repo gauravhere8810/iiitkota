@@ -25,7 +25,7 @@ interface AuthContextType {
   user: User | null;
   activeClubId: string | null;
   setActiveClubId: (id: string) => void;
-  loginAsRole: (role: Role) => Promise<void>;
+  loginAsRole: (role: Role, name?: string) => Promise<void>;
   logout: () => void;
   isLoading: boolean;
 }
@@ -37,24 +37,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [activeClubId, setActiveClubId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-
-
-  const loginAsRole = async (role: Role) => {
+  const loginAsRole = async (role: Role, name?: string) => {
     setIsLoading(true);
-    let realClubId = "club-1";
-    
-    const mockUser: User = {
-      id: `mock-${role.toLowerCase()}`,
-      name: `Mock ${role.replace("_", " ")}`,
-      email: `${role.toLowerCase()}@iiitkota.ac.in`,
-      role: role,
-      clubs: [{ id: realClubId, name: "Modular App Club", role: role }],
-    };
-    setUser(mockUser);
-    if (mockUser.clubs.length > 0) {
-      setActiveClubId(mockUser.clubs[0].id);
+    try {
+      let realClubId = "club-1";
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2000);
+        const res = await fetch(`/api/auth/proxy?email=coding.head@uni.edu`, { signal: controller.signal });
+        clearTimeout(timeoutId);
+        const data = await res.json();
+        if (data.user && data.user.clubs.length > 0) {
+          realClubId = data.user.clubs[0].id;
+        }
+      } catch(e) {
+        console.warn("Proxy fetch aborted or failed, falling back to club-1", e);
+      }
+      
+      const displayName = name || localStorage.getItem("modular_display_name") || `Mock ${role.replace("_", " ")}`;
+      if (name) localStorage.setItem("modular_display_name", name);
+
+      const mockUser: User = {
+        id: `mock-${(role || "STUDENT").toLowerCase()}-${Date.now()}`,
+        name: displayName,
+        email: `${(role || "STUDENT").toLowerCase()}@iiitkota.ac.in`,
+        role: role || "STUDENT",
+        clubs: [{ id: realClubId, name: "Modular App Club", role: role || "STUDENT" }],
+      };
+      
+      setUser(mockUser);
+      if (mockUser.clubs.length > 0) {
+        setActiveClubId(mockUser.clubs[0].id);
+      }
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
   const logout = () => {
