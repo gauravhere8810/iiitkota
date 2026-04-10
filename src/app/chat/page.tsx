@@ -32,6 +32,13 @@ export default function ChatPage() {
 
   const activeClub = user?.clubs.find(c => c.id === activeClubId);
   const canPostFormal = activeClub?.role === "HEAD" || activeClub?.role === "COORDINATOR" || activeClub?.role === "FACULTY";
+  const isGeneralMember = activeClub?.role === "GENERAL";
+
+  useEffect(() => {
+    if (isGeneralMember && channel === "INFORMAL") {
+      setChannel("FORMAL");
+    }
+  }, [isGeneralMember, channel]);
 
   useEffect(() => {
     // Mocking messages for demo
@@ -72,16 +79,18 @@ export default function ChatPage() {
           <h3>Channels</h3>
         </div>
         <div className={styles.channelList}>
-          <button 
-            className={clsx(styles.channelBtn, channel === "INFORMAL" && styles.activeChannel)}
-            onClick={() => setChannel("INFORMAL")}
-          >
-            <MessageCircle size={18} />
-            <div className={styles.channelInfo}>
-              <span className={styles.channelName}>#informal-chat</span>
-              <span className={styles.channelStatus}>Public discussion</span>
-            </div>
-          </button>
+          {!isGeneralMember && (
+            <button 
+              className={clsx(styles.channelBtn, channel === "INFORMAL" && styles.activeChannel)}
+              onClick={() => setChannel("INFORMAL")}
+            >
+              <MessageCircle size={18} />
+              <div className={styles.channelInfo}>
+                <span className={styles.channelName}>#informal-chat</span>
+                <span className={styles.channelStatus}>Public discussion</span>
+              </div>
+            </button>
+          )}
           
           <button 
             className={clsx(styles.channelBtn, styles.formalBtn, channel === "FORMAL" && styles.activeFormal)}
@@ -127,7 +136,7 @@ export default function ChatPage() {
         </div>
 
         <div className={styles.inputArea}>
-          {(channel === "INFORMAL" || canPostFormal) ? (
+          {(channel === "INFORMAL" && !isGeneralMember) || (channel === "FORMAL" && canPostFormal) ? (
             <div className={clsx(styles.inputWrapper, "glass")}>
               <button className={styles.attachBtn}><Plus size={20} /></button>
               <input 
