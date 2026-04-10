@@ -42,8 +42,7 @@ const SEARCH_RESULTS = [
 ];
 
 export default function Header() {
-  const { user, loginAs, logout } = useAuth();
-  const [showProxy, setShowProxy] = useState(false);
+  const { user, logout } = useAuth();
   const [showNotifs, setShowNotifs] = useState(false);
   const [showPalette, setShowPalette] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -57,7 +56,6 @@ export default function Header() {
         setShowPalette(true);
       }
       if (e.key === "Escape") {
-        setShowProxy(false);
         setShowNotifs(false);
         setShowPalette(false);
       }
@@ -71,13 +69,7 @@ export default function Header() {
     router.push(href);
   };
 
-  const PROXY_USERS = [
-    { name: "Global Head", email: "head@uni.edu" },
-    { name: "Faculty Coordinator", email: "faculty@uni.edu" },
-    { name: "Club Head (Coding)", email: "coding.head@uni.edu" },
-    { name: "Core Member (Coding)", email: "coding.core@uni.edu" },
-    { name: "General Student", email: "student@uni.edu" },
-  ];
+
 
   return (
     <>
@@ -120,41 +112,14 @@ export default function Header() {
             )}
           </div>
 
-          <div className={styles.proxyWrapper}>
-            <button 
-              className={clsx(styles.proxyToggle, "glass-hover")}
-              onClick={() => setShowProxy(!showProxy)}
-            >
-              <span className={styles.proxyLabel}>Proxy Login</span>
-              <ChevronDown size={14} />
-            </button>
-
-            {showProxy && (
-              <div className={clsx(styles.proxyMenu, "glass")}>
-                <div className={styles.menuHeader}>Switch User Role</div>
-                {PROXY_USERS.map((u) => (
-                  <button 
-                    key={u.email} 
-                    className={styles.menuItem}
-                    onClick={() => {
-                      loginAs(u.email);
-                      setShowProxy(false);
-                    }}
-                  >
-                    <div className={styles.menuUser}>
-                      <span className={styles.menuName}>{u.name}</span>
-                      <span className={styles.menuEmail}>{u.email}</span>
-                    </div>
-                  </button>
-                ))}
-                <div className={styles.menuDivider} />
-                <button className={styles.menuItem} onClick={() => { logout(); router.push("/"); }}>
-                  <LogOut size={16} />
-                  <span>Logout</span>
-                </button>
-              </div>
-            )}
-          </div>
+          <button 
+            className={clsx(styles.actionBtn, "glass-hover")} 
+            onClick={() => { logout(); router.push("/"); }}
+            title="Logout"
+            style={{ marginLeft: "1rem" }}
+          >
+            <LogOut size={20} />
+          </button>
         </div>
       </header>
 

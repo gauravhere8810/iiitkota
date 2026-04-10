@@ -32,16 +32,11 @@ const PROXY_ROLES = [
 ];
 
 export default function Home() {
-  const { user, loginAs, isLoading } = useAuth();
+  const { user, isLoading } = useAuth();
   const router = useRouter();
 
   // If already logged in, we can auto-redirect, or let them pick again
   // For the demo, we stay here until they select or if they were already here
-  
-  const handleSelectRole = async (email: string) => {
-    await loginAs(email);
-    router.push("/dashboard");
-  };
 
   if (isLoading) {
     return (

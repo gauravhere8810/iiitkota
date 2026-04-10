@@ -25,7 +25,6 @@ interface AuthContextType {
   user: User | null;
   activeClubId: string | null;
   setActiveClubId: (id: string) => void;
-  loginAs: (email: string) => Promise<void>;
   loginAsRole: (role: Role) => Promise<void>;
   logout: () => void;
   isLoading: boolean;
@@ -38,37 +37,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [activeClubId, setActiveClubId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const loginAs = async (email: string) => {
-    setIsLoading(true);
-    try {
-      const res = await fetch(`/api/auth/proxy?email=${email}`);
-      const data = await res.json();
-      if (data.user) {
-        setUser(data.user);
-        // Default to first club if available
-        if (data.user.clubs.length > 0) {
-          setActiveClubId(data.user.clubs[0].id);
-        } else {
-          setActiveClubId(null);
-        }
-      }
-    } catch (error) {
-      console.error("Login failed:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+
 
   const loginAsRole = async (role: Role) => {
     setIsLoading(true);
     let realClubId = "club-1";
-    try {
-      const res = await fetch(`/api/auth/proxy?email=coding.head@uni.edu`);
-      const data = await res.json();
-      if (data.user && data.user.clubs.length > 0) {
-        realClubId = data.user.clubs[0].id;
-      }
-    } catch(e) {}
     
     const mockUser: User = {
       id: `mock-${role.toLowerCase()}`,
@@ -92,12 +65,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     // Check local storage or default to first seed user for demo
-    const savedUser = localStorage.getItem("modular_user");
     const savedRole = localStorage.getItem("modular_user_role") as Role;
     if (savedRole) {
       loginAsRole(savedRole);
-    } else if (savedUser) {
-      loginAs(savedUser);
     } else {
       setIsLoading(false);
     }
@@ -114,7 +84,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [user]);
 
   return (
-    <AuthContext.Provider value={{ user, activeClubId, setActiveClubId, loginAs, loginAsRole, logout, isLoading }}>
+    <AuthContext.Provider value={{ user, activeClubId, setActiveClubId, loginAsRole, logout, isLoading }}>
       {children}
     </AuthContext.Provider>
   );

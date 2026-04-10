@@ -36,8 +36,8 @@ export default function ChatPage() {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const activeClub = user?.clubs.find(c => c.id === activeClubId);
-  const isTopRole = activeClub?.role === "HEAD" || activeClub?.role === "COORDINATOR" || activeClub?.role === "FACULTY";
-  const isGeneralMember = activeClub?.role === "GENERAL";
+  const isTopRole = activeClub?.role === "SAC_HEAD" || activeClub?.role === "SAC_MEMBER" || activeClub?.role === "CLUB_HEAD";
+  const isGeneralMember = activeClub?.role === "STUDENT";
 
   useEffect(() => {
     // General members can only access ANNOUNCEMENTS
