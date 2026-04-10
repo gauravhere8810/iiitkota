@@ -16,3 +16,31 @@ export async function GET(request: Request) {
 
   return NextResponse.json({ resources });
 }
+
+export async function POST(request: Request) {
+  try {
+    const data = await request.json();
+    const { name, type, location, clubId } = data;
+
+    if (!name || !type || !clubId) {
+      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    }
+
+    const resource = await prisma.resource.create({
+      data: {
+        name,
+        type,
+        location,
+        clubId,
+        status: "AVAILABLE",
+        qrCode: `RES-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
+        description: data.description || "Shared community resource.",
+      },
+    });
+
+    return NextResponse.json({ resource }, { status: 201 });
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+  }
+}

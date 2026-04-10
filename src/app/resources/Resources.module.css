@@ -69,6 +69,18 @@
   color: white;
 }
 
+.addBtn {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  margin-left: 0.5rem;
+}
+
+.addBtn:hover {
+  background: rgba(16, 185, 129, 0.25);
+  color: white;
+}
+
 /* Grid */
 .resourceGrid {
   display: grid;

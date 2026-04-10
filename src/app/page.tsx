@@ -55,6 +55,7 @@ export default function Home() {
 
   return (
     <div className={styles.container}>
+      <div className={styles.greenCloud}></div>
       <header className={styles.hero}>
         <span className={styles.tagline}>The College OS</span>
         <h1>Welcome to Modular Commons</h1>
