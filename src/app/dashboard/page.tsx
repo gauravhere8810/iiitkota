@@ -5,7 +5,7 @@ import { useAuth } from "@/context/AuthContext";
 import { 
   Users, 
   Calendar, 
-  Announcement, 
+  Megaphone, 
   ArrowUpRight, 
   TrendingUp, 
   Clock,

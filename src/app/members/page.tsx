@@ -8,6 +8,7 @@ import {
   Mail, 
   Calendar, 
   Shield, 
+  MoreHorizontal,
   Filter,
   X
 } from "lucide-react";
