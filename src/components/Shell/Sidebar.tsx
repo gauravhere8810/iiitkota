@@ -14,7 +14,8 @@ import {
   Settings,
   ChevronDown,
   LayoutDashboard,
-  ShieldCheck
+  ShieldCheck,
+  Megaphone
 } from "lucide-react";
 import styles from "./Sidebar.module.css";
 import Link from "next/link";
@@ -23,8 +24,8 @@ import { clsx } from "clsx";
 
 const navItems = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { name: "Announcements", href: "/announcements", icon: Megaphone },
   { name: "Members", href: "/members", icon: Users },
-  { name: "Hierarchy", href: "/hierarchy", icon: ShieldCheck },
   { name: "Resources", href: "/resources", icon: Package },
   { name: "Live Feed", href: "/feed", icon: Activity },
   { name: "Chat", href: "/chat", icon: MessageSquare },
@@ -80,6 +81,8 @@ export default function Sidebar() {
 
       <nav className={styles.nav}>
         {navItems.map((item) => {
+          if ((item.name === "Resources" || item.name === "Chat") && user?.role === "STUDENT") return null;
+          
           const Icon = item.icon;
           const href = (item.name === "Dashboard" && user?.role) 
             ? `/dashboard/${user.role.toLowerCase().replace("_", "-")}` 
