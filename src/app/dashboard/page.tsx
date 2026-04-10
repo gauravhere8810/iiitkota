@@ -35,16 +35,25 @@ export default function Dashboard() {
     if (activeClubId) {
       setLoading(true);
       fetch(`/api/dashboard?clubId=${activeClubId}`)
-        .then(res => res.json())
+        .then(res => {
+          if (!res.ok) throw new Error("Failed to fetch dashboard data");
+          return res.json();
+        })
         .then(d => {
           setData(d);
           setLoading(false);
+        })
+        .catch(err => {
+          console.error("Dashboard API Error:", err);
+          setLoading(false);
         });
+    } else {
+      setLoading(false);
     }
   }, [activeClubId]);
 
   if (loading) return <div>Loading dashboard...</div>;
-
+  if (!activeClub) return <div style={{ padding: "4rem", textAlign: "center" }}>Please select a club from the sidebar to view its dashboard.</div>;
   return (
     <div className={styles.container}>
       <header className={styles.header}>
@@ -78,7 +87,7 @@ export default function Dashboard() {
             <button className={styles.viewAll}>View Calendar <ArrowUpRight size={14} /></button>
           </div>
           <div className={styles.eventList}>
-            {data?.upcomingEvents.map((event: any) => (
+            {data?.upcomingEvents?.map((event: any) => (
               <div key={event.id} className={styles.eventItem}>
                 <div className={styles.eventDate}>
                   <span className={styles.day}>{new Date(event.startTime).getDate()}</span>
@@ -104,7 +113,7 @@ export default function Dashboard() {
             <h3>Announcements</h3>
           </div>
           <div className={styles.announcementList}>
-            {data?.recentAnnouncements.map((ann: any) => (
+            {data?.recentAnnouncements?.map((ann: any) => (
               <div key={ann.id} className={styles.annItem}>
                 <div className={styles.annBadge} data-priority={ann.priority}>
                   {ann.priority}
