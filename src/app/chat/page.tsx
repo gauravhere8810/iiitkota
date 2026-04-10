@@ -30,20 +30,26 @@ interface Message {
 
 export default function ChatPage() {
   const { user, activeClubId } = useAuth();
-  const [channel, setChannel] = useState<"INFORMAL" | "FORMAL">("INFORMAL");
+  const [channel, setChannel] = useState<"INFORMAL" | "FORMAL" | "ANNOUNCEMENTS">("ANNOUNCEMENTS");
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState("");
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const activeClub = user?.clubs.find(c => c.id === activeClubId);
-  const canPostFormal = activeClub?.role === "HEAD" || activeClub?.role === "COORDINATOR" || activeClub?.role === "FACULTY";
+  const isTopRole = activeClub?.role === "HEAD" || activeClub?.role === "COORDINATOR" || activeClub?.role === "FACULTY";
   const isGeneralMember = activeClub?.role === "GENERAL";
 
   useEffect(() => {
-    if (isGeneralMember && channel === "INFORMAL") {
-      setChannel("FORMAL");
+    // General members can only access ANNOUNCEMENTS
+    if (isGeneralMember && channel !== "ANNOUNCEMENTS") {
+      setChannel("ANNOUNCEMENTS");
     }
-  }, [isGeneralMember, channel]);
+    
+    // Core members cannot see FORMAL, but can see ANNOUNCEMENTS and INFORMAL
+    if (!isTopRole && channel === "FORMAL") {
+      setChannel("INFORMAL");
+    }
+  }, [isGeneralMember, isTopRole, channel]);
 
   useEffect(() => {
     // Mocking messages for demo
@@ -52,6 +58,11 @@ export default function ChatPage() {
         { id: "1", sender: "Charlie Dev", content: "Hey anyone up for a late night coding session?", timestamp: "10:30 PM" },
         { id: "2", sender: "Eve Coder", content: "I'm down! In the lab?", timestamp: "10:32 PM" },
         { id: "3", sender: "Charlie Dev", content: "Yep, see ya there.", timestamp: "10:35 PM" },
+      ]);
+    } else if (channel === "FORMAL") {
+      setMessages([
+        { id: "201", sender: "Dr. Alice Smith", content: "Let's review the finalized budget for the tech symposium.", timestamp: "11:00 AM" },
+        { id: "202", sender: "Admin Bob", content: "Agreed. I will upload the Excel spec sheet soon.", timestamp: "11:15 AM" },
       ]);
     } else {
       setMessages([
@@ -68,7 +79,7 @@ export default function ChatPage() {
       sender: user?.name || "Unknown",
       content: inputText,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      isOfficial: channel === "FORMAL"
+      isOfficial: channel === "ANNOUNCEMENTS"
     };
     setMessages([...messages, newMessage]);
     setInputText("");
@@ -87,7 +98,7 @@ export default function ChatPage() {
       sender: user?.name || "Unknown",
       content: inputText || "Sent a file",
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      isOfficial: channel === "FORMAL",
+      isOfficial: channel === "ANNOUNCEMENTS",
       fileUrl,
       fileType: file.type,
       fileName: file.name
@@ -109,6 +120,18 @@ export default function ChatPage() {
           <h3>Channels</h3>
         </div>
         <div className={styles.channelList}>
+          <button 
+            className={clsx(styles.channelBtn, styles.formalBtn, channel === "ANNOUNCEMENTS" && styles.activeFormal)}
+            onClick={() => setChannel("ANNOUNCEMENTS")}
+          >
+            <Megaphone size={18} />
+            <div className={styles.channelInfo}>
+              <span className={styles.channelName}>#announcements</span>
+              <span className={styles.channelStatus}>Official updates only</span>
+            </div>
+            {!isTopRole && <Lock size={12} className={styles.lockIcon} />}
+          </button>
+
           {!isGeneralMember && (
             <button 
               className={clsx(styles.channelBtn, channel === "INFORMAL" && styles.activeChannel)}
@@ -122,26 +145,27 @@ export default function ChatPage() {
             </button>
           )}
           
-          <button 
-            className={clsx(styles.channelBtn, styles.formalBtn, channel === "FORMAL" && styles.activeFormal)}
-            onClick={() => setChannel("FORMAL")}
-          >
-            <Megaphone size={18} />
-            <div className={styles.channelInfo}>
-              <span className={styles.channelName}>#announcements</span>
-              <span className={styles.channelStatus}>Official updates only</span>
-            </div>
-            {!canPostFormal && <Lock size={12} className={styles.lockIcon} />}
-          </button>
+          {isTopRole && (
+            <button 
+              className={clsx(styles.channelBtn, styles.formalBtn, channel === "FORMAL" && styles.activeFormal)}
+              onClick={() => setChannel("FORMAL")}
+            >
+              <Lock size={18} />
+              <div className={styles.channelInfo}>
+                <span className={styles.channelName}>#formal-chat</span>
+                <span className={styles.channelStatus}>Leadership group</span>
+              </div>
+            </button>
+          )}
         </div>
       </aside>
 
       <section className={clsx(styles.chatWindow, "glass")}>
         <header className={styles.chatHeader}>
           <div className={styles.chatTitle}>
-            <h4>{channel === "INFORMAL" ? "#informal-chat" : "#announcements"}</h4>
+            <h4>{channel === "INFORMAL" ? "#informal-chat" : channel === "FORMAL" ? "#formal-chat" : "#announcements"}</h4>
             <div className={styles.separator} />
-            <span>{channel === "INFORMAL" ? "Casual brainstorming and discussion" : "Official club communications"}</span>
+            <span>{channel === "INFORMAL" ? "Casual brainstorming and discussion" : channel === "FORMAL" ? "Leadership group chat" : "Official club communications"}</span>
           </div>
           <div className={styles.headerActions}>
             <Search size={18} />
@@ -182,7 +206,7 @@ export default function ChatPage() {
         </div>
 
         <div className={styles.inputArea}>
-          {(channel === "INFORMAL" && !isGeneralMember) || (channel === "FORMAL" && canPostFormal) ? (
+          {(channel !== "ANNOUNCEMENTS") || (channel === "ANNOUNCEMENTS" && isTopRole) ? (
             <div className={clsx(styles.inputWrapper, "glass")}>
               <button className={styles.attachBtn} onClick={() => fileInputRef.current?.click()}>
                 <Plus size={20} />
@@ -196,7 +220,7 @@ export default function ChatPage() {
               />
               <input 
                 type="text" 
-                placeholder={channel === "FORMAL" ? "Broadcasting official message..." : "Message #informal-chat"} 
+                placeholder={`Message #${channel === "ANNOUNCEMENTS" ? "announcements" : channel === "FORMAL" ? "formal-chat" : "informal-chat"}`} 
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleSend()}
