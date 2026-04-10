@@ -1,0 +1,272 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 2.5rem;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+}
+
+.greeting h1 {
+  font-size: 2.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.greeting p {
+  color: var(--muted-foreground);
+  font-size: 1.125rem;
+}
+
+.stats {
+  display: flex;
+  gap: 1rem;
+}
+
+.statCard {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+  border-radius: var(--radius);
+  min-width: 180px;
+}
+
+.statIcon {
+  color: var(--accent);
+}
+
+.statInfo {
+  display: flex;
+  flex-direction: column;
+}
+
+.statLabel {
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+}
+
+.statValue {
+  font-size: 1.5rem;
+  font-weight: 700;
+  font-family: var(--font-outfit);
+}
+
+.trend {
+  margin-left: auto;
+  color: #10b981;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  grid-template-rows: auto auto;
+  gap: 1.5rem;
+}
+
+.mainSection {
+  grid-row: span 2;
+  padding: 1.5rem;
+  border-radius: var(--radius);
+}
+
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.viewAll {
+  background: transparent;
+  border: none;
+  color: var(--primary);
+  font-size: 0.875rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  cursor: pointer;
+}
+
+/* Event List */
+.eventList {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.eventItem {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  transition: all 0.2s;
+}
+
+.eventItem:hover {
+  background: rgba(255, 255, 255, 0.04);
+  transform: translateX(4px);
+}
+
+.eventDate {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: var(--secondary);
+  padding: 0.5rem;
+  border-radius: 8px;
+  min-width: 50px;
+}
+
+.day {
+  font-size: 1.25rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.month {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+
+.eventInfo {
+  flex: 1;
+}
+
+.eventInfo h4 {
+  font-size: 1rem;
+  margin-bottom: 0.25rem;
+}
+
+.eventInfo p {
+  font-size: 0.875rem;
+  color: var(--muted-foreground);
+}
+
+.regCount {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted-foreground);
+  background: rgba(255, 255, 255, 0.05);
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+}
+
+/* Announcements */
+.sideSection {
+  padding: 1.5rem;
+  border-radius: var(--radius);
+}
+
+.announcementList {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.annItem h4 {
+  font-size: 0.9375rem;
+  margin-bottom: 0.375rem;
+}
+
+.annItem p {
+  font-size: 0.8125rem;
+  color: var(--muted-foreground);
+  line-height: 1.5;
+}
+
+.annBadge {
+  display: inline-block;
+  font-size: 0.625rem;
+  font-weight: 800;
+  padding: 0.125rem 0.375rem;
+  border-radius: 4px;
+  margin-bottom: 0.5rem;
+  text-transform: uppercase;
+}
+
+.annBadge[data-priority="HIGH"] { background: rgba(239, 68, 68, 0.2); color: #f87171; }
+.annBadge[data-priority="NORMAL"] { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
+
+.annMeta {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+}
+
+/* Approvals */
+.approvalSection {
+  padding: 1.5rem;
+  border-radius: var(--radius);
+}
+
+.pendingCount {
+  background: var(--destructive);
+  color: white;
+  padding: 0.125rem 0.5rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.reqList {
+  display: flex;
+  flex-direction: column;
+}
+
+.reqItem {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.01);
+}
+
+.reqInfo p {
+  font-size: 0.875rem;
+}
+
+.reqInfo span {
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+}
+
+.reqActions {
+  margin-left: auto;
+}
+
+.approveBtn {
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  color: #10b981;
+  padding: 0.375rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.approveBtn:hover {
+  background: rgba(16, 185, 129, 0.2);
+}
+
+.empty {
+  text-align: center;
+  color: var(--muted-foreground);
+  font-style: italic;
+  padding: 2rem;
+}

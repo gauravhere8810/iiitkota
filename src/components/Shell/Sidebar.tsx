@@ -1,0 +1,106 @@
+"use client";
+
+import React from "react";
+import { useAuth } from "@/context/AuthContext";
+import { 
+  BarChart3, 
+  Users, 
+  Layers, 
+  Package, 
+  Activity, 
+  MessageSquare, 
+  Vote, 
+  Bell, 
+  Settings,
+  ChevronDown,
+  LayoutDashboard,
+  ShieldCheck
+} from "lucide-react";
+import styles from "./Sidebar.module.css";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { clsx } from "clsx";
+
+const navItems = [
+  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { name: "Members", href: "/members", icon: Users },
+  { name: "Hierarchy", href: "/hierarchy", icon: ShieldCheck },
+  { name: "Resources", href: "/resources", icon: Package },
+  { name: "Live Feed", href: "/feed", icon: Activity },
+  { name: "Chat", href: "/chat", icon: MessageSquare },
+  { name: "Polls", href: "/polls", icon: Vote },
+  { name: "Analytics", href: "/analytics", icon: BarChart3 },
+];
+
+export default function Sidebar() {
+  const { user, activeClubId, setActiveClubId } = useAuth();
+  const pathname = usePathname();
+
+  const activeClub = user?.clubs.find(c => c.id === activeClubId);
+
+  return (
+    <aside className={clsx(styles.sidebar, "glass")}>
+      <div className={styles.logo}>
+        <div className={styles.logoIcon}>M</div>
+        <span className={styles.logoText}>Modular Commons</span>
+      </div>
+
+      <div className={styles.clubSwitcher}>
+        <button className={styles.clubButton}>
+          <div className={styles.clubAccent} style={{ backgroundColor: "#3b82f6" }} />
+          <div className={styles.clubInfo}>
+            <span className={styles.clubName}>{activeClub?.name || "Select Club"}</span>
+            <span className={styles.clubRole}>{activeClub?.role || "Member"}</span>
+          </div>
+          <ChevronDown size={16} className={styles.chevron} />
+        </button>
+        
+        <div className={styles.clubDropdown}>
+          {user?.clubs.map((club) => (
+            <button 
+              key={club.id} 
+              className={clsx(styles.dropdownItem, activeClubId === club.id && styles.active)}
+              onClick={() => setActiveClubId(club.id)}
+            >
+              {club.name}
+              <span className={styles.roleTag}>{club.role}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <nav className={styles.nav}>
+        {navItems.map((item) => {
+          const Icon = item.icon;
+          const isActive = pathname.startsWith(item.href);
+          return (
+            <Link 
+              key={item.href} 
+              href={item.href} 
+              className={clsx(styles.navItem, isActive && styles.navActive)}
+            >
+              <Icon size={20} />
+              <span>{item.name}</span>
+            </Link>
+          );
+        })}
+      </nav>
+
+      <div className={styles.footer}>
+        <Link href="/settings" className={styles.navItem}>
+          <Settings size={20} />
+          <span>Settings</span>
+        </Link>
+        <div className={styles.userProfile}>
+          <div className={styles.avatar}>
+            {user?.name.charAt(0)}
+          </div>
+          <div className={styles.userDetails}>
+            <span className={styles.userName}>{user?.name}</span>
+            <span className={styles.userEmail}>{user?.email}</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+  );
+}

@@ -1,0 +1,217 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Organization {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  clubs       Club[]
+  auditLogs   AuditLog[]
+  createdAt   DateTime @default(now())
+}
+
+model Club {
+  id            String         @id @default(cuid())
+  organizationId String
+  organization  Organization   @relation(fields: [organizationId], references: [id])
+  name          String
+  description   String?
+  category      String         // "TECHNICAL", "CULTURAL"
+  accentColor   String         @default("#3b82f6")
+  memberships   Membership[]
+  resources     Resource[]
+  announcements Announcement[]
+  events        Event[]
+  polls         Poll[]
+  chatMessages  ChatMessage[]
+  activityLogs  ActivityLog[]
+  createdAt     DateTime       @default(now())
+}
+
+model User {
+  id            String         @id @default(cuid())
+  name          String
+  email         String         @unique
+  avatar        String?
+  skills        String?        // Comma separated
+  bio           String?
+  memberships   Membership[]
+  bookings      ResourceBooking[]
+  waitlist      WaitlistEntry[]
+  votes         PollVote[]
+  chatMessages  ChatMessage[]
+  activityLogs  ActivityLog[]
+  auditLogs     AuditLog[]
+  createdAt     DateTime       @default(now())
+}
+
+model Membership {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  clubId    String
+  club      Club     @relation(fields: [clubId], references: [id])
+  role      String   // "HEAD", "COORDINATOR", "CORE", "GENERAL"
+  status    String   @default("ACTIVE") // "ACTIVE", "SUSPENDED"
+  history   MembershipHistory[]
+  createdAt DateTime @default(now())
+
+  @@unique([userId, clubId])
+}
+
+model MembershipHistory {
+  id           String     @id @default(cuid())
+  membershipId String
+  membership   Membership @relation(fields: [membershipId], references: [id])
+  oldRole      String
+  newRole      String
+  changedBy    String
+  timestamp    DateTime   @default(now())
+}
+
+model Resource {
+  id          String            @id @default(cuid())
+  clubId      String
+  club        Club              @relation(fields: [clubId], references: [id])
+  name        String
+  description String?
+  type        String            // "PHYSICAL", "CORE_SPACE", "DIGITAL", "TIME"
+  status      String            @default("AVAILABLE") // "AVAILABLE", "IN_USE", "MAINTENANCE"
+  location    String?
+  bookings    ResourceBooking[]
+  waitlist    WaitlistEntry[]
+  qrCode      String?           // Unique QR identifier
+  createdAt   DateTime          @default(now())
+}
+
+model ResourceBooking {
+  id          String   @id @default(cuid())
+  resourceId  String
+  resource    Resource @relation(fields: [resourceId], references: [id])
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  startTime   DateTime
+  endTime     DateTime
+  status      String   @default("PENDING") // "PENDING", "APPROVED", "REJECTED", "CHECKED_OUT", "RETURNED"
+  notes       String?
+  createdAt   DateTime @default(now())
+}
+
+model WaitlistEntry {
+  id         String   @id @default(cuid())
+  resourceId String
+  resource   Resource @relation(fields: [resourceId], references: [id])
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  position   Int
+  status     String   @default("WAITING") // "WAITING", "NOTIFIED", "CLAIMED", "EXPIRED"
+  createdAt  DateTime @default(now())
+}
+
+model Announcement {
+  id        String   @id @default(cuid())
+  clubId    String
+  club      Club     @relation(fields: [clubId], references: [id])
+  title     String
+  content   String
+  priority  String   @default("NORMAL") // "NORMAL", "HIGH", "URGENT"
+  authorId  String
+  channel   String   @default("FORMAL") // "FORMAL", "INFORMAL"
+  isPinned  Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model Event {
+  id          String   @id @default(cuid())
+  clubId      String
+  club        Club     @relation(fields: [clubId], references: [id])
+  title       String
+  description String
+  venue       String
+  startTime   DateTime
+  endTime     DateTime
+  maxAttendees Int?
+  status      String   @default("UPCOMING") // "UPCOMING", "ONGOING", "COMPLETED", "CANCELLED"
+  createdAt   DateTime @default(now())
+}
+
+model Poll {
+  id          String       @id @default(cuid())
+  clubId      String
+  club        Club         @relation(fields: [clubId], references: [id])
+  title       String
+  description String?
+  authorId    String
+  options     PollOption[]
+  votes       PollVote[]
+  expiresAt   DateTime
+  status      String       @default("ACTIVE") // "ACTIVE", "CLOSED"
+  createdAt   DateTime     @default(now())
+}
+
+model PollOption {
+  id     String     @id @default(cuid())
+  pollId String
+  poll   Poll       @relation(fields: [pollId], references: [id])
+  text   String
+  votes  PollVote[]
+}
+
+model PollVote {
+  id       String     @id @default(cuid())
+  pollId   String
+  poll     Poll       @relation(fields: [pollId], references: [id])
+  optionId String
+  option   PollOption @relation(fields: [optionId], references: [id])
+  userId   String
+  user     User       @relation(fields: [userId], references: [id])
+  createdAt DateTime   @default(now())
+
+  @@unique([pollId, userId])
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  clubId    String
+  club      Club     @relation(fields: [clubId], references: [id])
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  content   String
+  channel   String   // "FORMAL", "INFORMAL"
+  createdAt DateTime @default(now())
+}
+
+model ActivityLog {
+  id         String   @id @default(cuid())
+  clubId     String
+  club       Club     @relation(fields: [clubId], references: [id])
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  action     String   // "MEMBER_JOIN", "ROLE_CHANGE", "BOOKING_CREATE", etc.
+  entityId   String
+  entityType String   // "USER", "RESOURCE", "POLL", etc.
+  metadata   String?  // JSON string
+  createdAt  DateTime @default(now())
+}
+
+model AuditLog {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  userId         String
+  user           User         @relation(fields: [userId], references: [id])
+  action         String
+  description    String
+  createdAt      DateTime     @default(now())
+}
