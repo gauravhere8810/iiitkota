@@ -13,7 +13,11 @@ import {
   ChevronRight, 
   Activity, 
   FileText, 
-  Settings 
+  Settings,
+  Plus,
+  Send,
+  Loader2,
+  CheckCircle2
 } from "lucide-react";
 import styles from "./RoleDashboard.module.css";
 import { clsx } from "clsx";
@@ -28,6 +32,13 @@ export default function RoleDashboard({ params }: PageProps) {
   const router = useRouter();
   const resolvedParams = React.use(params);
   const roleSlug = resolvedParams.role;
+  
+  // Real-time Event Proposal State
+  const [showProposeModal, setShowProposeModal] = React.useState(false);
+  const [eventTitle, setEventTitle] = React.useState("");
+  const [eventDesc, setEventDesc] = React.useState("");
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [showSuccess, setShowSuccess] = React.useState(false);
   
   // Map slug back to enum
   const roleEnum = roleSlug.toUpperCase().replace("-", "_") as Role;
@@ -104,18 +115,17 @@ export default function RoleDashboard({ params }: PageProps) {
             <h3>Role-Based Controls</h3>
           </div>
           <div className={styles.controls}>
-             {ROLE_HIERARCHY[roleEnum] >= 4 && (
+             {ROLE_HIERARCHY[roleEnum] >= 2 && (
                <div className={styles.controlItem}>
-                 <h4>Administrative Oversight</h4>
-                 <p>Global budget allocation and constitutional modifications.</p>
-                 <button className={styles.actionBtn}>Open Panel</button>
-               </div>
-             )}
-             {ROLE_HIERARCHY[roleEnum] >= 3 && (
-               <div className={styles.controlItem}>
-                 <h4>Leadership Tools</h4>
-                 <p>Resource approval and core member evaluation.</p>
-                 <button className={styles.actionBtn}>Manage Team</button>
+                 <h4>Event Operations</h4>
+                 <p>Propose new community initiatives and club gatherings.</p>
+                 <button 
+                  className={styles.actionBtn} 
+                  style={{ background: "var(--primary)", color: "white" }}
+                  onClick={() => setShowProposeModal(true)}
+                 >
+                   <Plus size={14} /> Propose Event
+                 </button>
                </div>
              )}
              <div className={styles.controlItem}>
@@ -125,6 +135,91 @@ export default function RoleDashboard({ params }: PageProps) {
              </div>
           </div>
         </div>
+
+        {/* Propose Event Modal */}
+        {showProposeModal && (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: "1rem" }} onClick={() => setShowProposeModal(false)}>
+            <div className="glass" style={{ width: "100%", maxWidth: "500px", padding: "2rem", borderRadius: "24px", border: "1px solid rgba(255,255,255,0.1)", position: "relative" }} onClick={e => e.stopPropagation()}>
+              {showSuccess ? (
+                <div style={{ textAlign: "center", padding: "2rem" }}>
+                  <CheckCircle2 size={48} color="#10b981" style={{ margin: "0 auto 1rem" }} />
+                  <h3 style={{ fontSize: "1.5rem", color: "white", marginBottom: "0.5rem" }}>Proposal Sent!</h3>
+                  <p style={{ color: "rgba(255,255,255,0.6)" }}>The Club Head will see your request in real-time.</p>
+                </div>
+              ) : (
+                <>
+                  <h3 style={{ fontSize: "1.5rem", color: "white", marginBottom: "1.5rem" }}>Propose New Event</h3>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                      <label style={{ fontSize: "0.875rem", color: "rgba(255,255,255,0.6)" }}>Event Title</label>
+                      <input 
+                        type="text" 
+                        placeholder="e.g. Hackathon Kickoff" 
+                        value={eventTitle}
+                        onChange={e => setEventTitle(e.target.value)}
+                        style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "12px", padding: "0.75rem", color: "white", outline: "none" }}
+                      />
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                      <label style={{ fontSize: "0.875rem", color: "rgba(255,255,255,0.6)" }}>Description</label>
+                      <textarea 
+                        rows={3}
+                        placeholder="Detailed plan for the event..." 
+                        value={eventDesc}
+                        onChange={e => setEventDesc(e.target.value)}
+                        style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "12px", padding: "0.75rem", color: "white", outline: "none", resize: "none" }}
+                      />
+                    </div>
+                    <div style={{ display: "flex", gap: "1rem", marginTop: "0.5rem" }}>
+                      <button 
+                        onClick={() => setShowProposeModal(false)}
+                        style={{ flex: 1, padding: "0.75rem", borderRadius: "12px", border: "1px solid rgba(255,255,255,0.1)", background: "transparent", color: "white", cursor: "pointer" }}
+                      >
+                        Cancel
+                      </button>
+                      <button 
+                        disabled={!eventTitle || isSubmitting}
+                        onClick={async () => {
+                          setIsSubmitting(true);
+                          try {
+                            const { error } = await supabase.from("events").insert([
+                              {
+                                title: eventTitle,
+                                description: eventDesc,
+                                created_by_name: user?.name,
+                                venue: "Cloud Room",
+                                startTime: new Date().toISOString(),
+                                endTime: new Date().toISOString(),
+                                clubId: "collaboration-hub"
+                              }
+                            ]);
+                            if (!error) {
+                              setShowSuccess(true);
+                              setTimeout(() => {
+                                setShowProposeModal(false);
+                                setShowSuccess(false);
+                                setEventTitle("");
+                                setEventDesc("");
+                              }, 2000);
+                            }
+                          } catch (e) {
+                            console.error(e);
+                          } finally {
+                            setIsSubmitting(false);
+                          }
+                        }}
+                        style={{ flex: 2, padding: "0.75rem", borderRadius: "12px", border: "none", background: "var(--primary)", color: "white", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", fontWeight: "600" }}
+                      >
+                        {isSubmitting ? <Loader2 size={16} className="spin" /> : <Send size={16} />}
+                        Submit Proposal
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
         {roleEnum === "CLUB_HEAD" && <ClubHeadEventsFeed />}
       </div>
     </div>
