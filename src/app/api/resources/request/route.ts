@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { syncResourceStatuses } from "@/lib/resources";
 import { NextResponse } from "next/server";
 
 // GET: Fetch pending resource requests for a club
@@ -16,6 +17,7 @@ export async function GET(request: Request) {
   }
 
   try {
+    await syncResourceStatuses();
     // Get all resources for this club, then get bookings
     const resources = await prisma.resource.findMany({
       where: { clubId },
@@ -41,6 +43,7 @@ export async function GET(request: Request) {
         id: b.id,
         resourceId: b.resourceId,
         resourceName: b.resource.name,
+        requesterId: b.userId,
         requesterName: b.user.name,
         reason: b.notes || "No reason provided",
         status: b.status,
@@ -57,7 +60,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const data = await request.json();
-    let { resourceId, clubId, userId, userName, userEmail, reason } = data;
+    let { resourceId, clubId, userId, userName, userEmail, reason, duration } = data;
 
     if (!resourceId || !clubId || !userId) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -84,12 +87,14 @@ export async function POST(request: Request) {
       }
     }
 
+    await syncResourceStatuses();
+
     const booking = await prisma.resourceBooking.create({
       data: {
         resourceId,
         userId: finalUserId,
         startTime: new Date(),
-        endTime: new Date(Date.now() + 24 * 60 * 60 * 1000), // Default 24h
+        endTime: new Date(Date.now() + (duration ? duration * 60 * 60 * 1000 : 24 * 60 * 60 * 1000)), // Use custom duration or default 24h
         status: "PENDING",
         notes: reason
       }
@@ -119,6 +124,18 @@ export async function PATCH(request: Request) {
       where: { id: requestId },
       data: { status: action }
     });
+
+    if (action === "APPROVED") {
+      await prisma.resource.update({
+        where: { id: updated.resourceId },
+        data: { status: "IN_USE" }
+      });
+    } else if (action === "REJECTED" || action === "RETURNED") {
+      await prisma.resource.update({
+        where: { id: updated.resourceId },
+        data: { status: "AVAILABLE" }
+      });
+    }
 
     return NextResponse.json({ request: updated });
   } catch (error) {

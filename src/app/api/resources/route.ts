@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { syncResourceStatuses } from "@/lib/resources";
 import { NextResponse } from "next/server";
 
 export async function GET(request: Request) {
@@ -13,6 +14,12 @@ export async function GET(request: Request) {
   if (clubId === "club-1") {
     const defaultClub = await prisma.club.findFirst();
     if (defaultClub) clubId = defaultClub.id;
+  }
+
+  try {
+    await syncResourceStatuses();
+  } catch (err) {
+    console.error("Status sync failed:", err);
   }
 
   const resources = await prisma.resource.findMany({

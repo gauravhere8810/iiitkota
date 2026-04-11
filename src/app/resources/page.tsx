@@ -33,6 +33,7 @@ interface ResourceRequest {
   id: string;
   resourceId: string;
   resourceName: string;
+  requesterId: string;
   requesterName: string;
   reason: string;
   status: string;
@@ -45,10 +46,12 @@ export default function ResourcesPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("ALL");
+  const [refreshKey, setRefreshKey] = useState(0);
   
   // Request modal state
   const [selectedResource, setSelectedResource] = useState<Resource | null>(null);
   const [requestReason, setRequestReason] = useState("");
+  const [requestDuration, setRequestDuration] = useState(24);
   const [submitting, setSubmitting] = useState(false);
   const [requestSuccess, setRequestSuccess] = useState(false);
 
@@ -67,28 +70,41 @@ export default function ResourcesPage() {
   const isApprover = activeClub?.role === "SAC_HEAD" || activeClub?.role === "CLUB_HEAD";
   const isAuthorized = isApprover || activeClub?.role === "SAC_MEMBER" || activeClub?.role === "FACULTY";
 
+  // Real-time synchronization for Resources Page
+  useEffect(() => {
+    const sub = supabase.channel('resource-page-sync')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, (payload) => {
+        if (payload.new.channel === 'RESOURCE_ALERTS') {
+          // Whenever an alert or status update occurs, refresh local data
+          setRefreshKey(k => k + 1);
+        }
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(sub); }
+  }, []);
+
   useEffect(() => {
     if (activeClubId) {
       setLoading(true);
-      fetch(`/api/resources?clubId=${activeClubId}`)
+      fetch(`/api/resources?clubId=${activeClubId}&_ts=${refreshKey}`)
         .then(res => res.json())
         .then(data => {
           setResources(data.resources);
           setLoading(false);
         });
     }
-  }, [activeClubId]);
+  }, [activeClubId, refreshKey]);
 
   // Fetch pending requests for approvers
   useEffect(() => {
     if (isApprover && activeClubId) {
-      fetch(`/api/resources/request?clubId=${activeClubId}`)
+      fetch(`/api/resources/request?clubId=${activeClubId}&_ts=${refreshKey}`)
         .then(res => res.json())
         .then(data => {
           if (data.requests) setRequests(data.requests);
         });
     }
-  }, [isApprover, activeClubId]);
+  }, [isApprover, activeClubId, refreshKey]);
 
   const handleCreateResource = async () => {
     if (!newName || !activeClubId) return;
@@ -119,7 +135,8 @@ export default function ResourcesPage() {
           userId: user.id,
           userName: user.name,
           userEmail: user.email,
-          reason: requestReason
+          reason: requestReason,
+          duration: requestDuration
         })
       });
       if (res.ok) {
@@ -145,6 +162,7 @@ export default function ResourcesPage() {
         setTimeout(() => {
           setSelectedResource(null);
           setRequestReason("");
+          setRequestDuration(24);
           setRequestSuccess(false);
         }, 2000);
       }
@@ -163,7 +181,22 @@ export default function ResourcesPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ requestId, action })
       });
+      const targetReq = requests.find(r => r.id === requestId);
       setRequests(prev => prev.map(r => r.id === requestId ? { ...r, status: action } : r));
+      
+      // Notify all devices to refresh UI
+      await supabase.from("chat_messages").insert([{
+        sender_id: user?.id || "SYSTEM",
+        sender_name: "SYSTEM",
+        channel: "RESOURCE_ALERTS",
+        content: JSON.stringify({ 
+          type: "STATUS_UPDATE",
+          id: requestId,
+          requesterId: targetReq?.requesterId,
+          resourceName: targetReq?.resourceName,
+          newStatus: action
+        })
+      }]);
     } catch (err) {
       console.error("Approval failed:", err);
     } finally {
@@ -308,7 +341,7 @@ export default function ResourcesPage() {
 
       {/* Request Access Modal */}
       {selectedResource && (
-        <div className={styles.modalOverlay} onClick={() => { setSelectedResource(null); setRequestSuccess(false); setRequestReason(""); }}>
+        <div className={styles.modalOverlay} onClick={() => { setSelectedResource(null); setRequestSuccess(false); setRequestReason(""); setRequestDuration(24); }}>
           <div className={clsx(styles.bookingModal, "glass")} onClick={e => e.stopPropagation()}>
             {requestSuccess ? (
               <div className={styles.successState}>
@@ -334,13 +367,28 @@ export default function ResourcesPage() {
                       rows={3}
                     />
                   </div>
+                  <div className={styles.formGroup}>
+                    <label>Usage Duration</label>
+                    <select 
+                      value={requestDuration} 
+                      onChange={e => setRequestDuration(Number(e.target.value))}
+                      className={styles.select}
+                    >
+                      <option value={1}>1 Hour</option>
+                      <option value={4}>4 Hours</option>
+                      <option value={8}>8 Hours</option>
+                      <option value={24}>1 Day</option>
+                      <option value={48}>2 Days</option>
+                      <option value={168}>1 Week</option>
+                    </select>
+                  </div>
                   <div className={styles.conflictWarn}>
                     <AlertTriangle size={14} />
-                    <span>Your request will be reviewed by SAC Head or Club Head before access is granted.</span>
+                    <span>Your request will be reviewed by leadership. After approval, access is granted for the selected duration.</span>
                   </div>
                 </div>
                 <div className={styles.modalActions}>
-                  <button className={styles.cancelBtn} onClick={() => { setSelectedResource(null); setRequestReason(""); }}>Cancel</button>
+                  <button className={styles.cancelBtn} onClick={() => { setSelectedResource(null); setRequestReason(""); setRequestDuration(24); }}>Cancel</button>
                   <button 
                     className={styles.confirmBtn} 
                     onClick={handleRequestResource}
