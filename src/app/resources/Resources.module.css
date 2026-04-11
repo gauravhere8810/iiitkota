@@ -81,6 +81,123 @@
   color: white;
 }
 
+.approvalToggle {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  margin-left: 0.5rem;
+}
+
+.approvalToggle:hover {
+  background: rgba(245, 158, 11, 0.25);
+  color: white;
+}
+
+/* Approval Panel */
+.approvalPanel {
+  padding: 1.5rem;
+  border-radius: var(--radius);
+  border: 1px solid rgba(245, 158, 11, 0.15);
+}
+
+.approvalPanel h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1rem;
+  margin-bottom: 1rem;
+  color: #f59e0b;
+}
+
+.emptyApprovals {
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+}
+
+.approvalList {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.approvalItem {
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.approvalInfo {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.approvalInfo strong {
+  color: white;
+}
+
+.approvalInfo span {
+  color: var(--muted-foreground);
+}
+
+.approvalReason {
+  font-size: 0.8125rem;
+  color: var(--muted-foreground);
+  font-style: italic;
+}
+
+.approvalActions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.25rem;
+}
+
+.approveBtn {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 1rem;
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: #10b981;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.approveBtn:hover:not(:disabled) {
+  background: rgba(16, 185, 129, 0.3);
+}
+
+.rejectBtn {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 1rem;
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #ef4444;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.rejectBtn:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.3);
+}
+
 /* Grid */
 .resourceGrid {
   display: grid;
@@ -160,27 +277,17 @@
   margin-top: auto;
 }
 
-.qrBtn {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid var(--glass-border);
-  color: var(--muted-foreground);
-  padding: 0.75rem;
-  border-radius: 10px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.qrBtn:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--foreground);
-}
-
 .bookBtn {
   flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
   background: var(--primary);
   border: none;
   color: white;
   font-weight: 700;
+  padding: 0.75rem;
   border-radius: 10px;
   cursor: pointer;
   transition: all 0.2s;
@@ -210,46 +317,26 @@
   padding: 2rem;
 }
 
-.qrModal, .bookingModal {
+.bookingModal {
   width: 100%;
-  max-width: 440px;
+  max-width: 480px;
   padding: 2.5rem;
   border-radius: 20px;
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
-  text-align: center;
 }
 
-.qrPlaceholder {
-  padding: 2rem;
-  background: white;
-  border-radius: 12px;
+.bookingModal h3 {
+  font-size: 1.25rem;
+}
+
+.resourceInfo {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1rem;
-  color: black;
-}
-
-.qrIndicator {
-  font-size: 0.625rem;
-  font-weight: 800;
-  letter-spacing: 0.1em;
-}
-
-.simulateScanBtn, .confirmBtn {
-  background: var(--primary);
-  border: none;
-  color: white;
-  padding: 1rem;
-  border-radius: 12px;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  cursor: pointer;
+  gap: 1.5rem;
+  padding: 0.75rem;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
 }
 
 .bookingForm {
@@ -276,20 +363,21 @@
   color: white;
 }
 
-.slots {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 0.5rem;
+.textarea {
+  width: 100%;
+  padding: 0.75rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  color: white;
+  font-family: inherit;
+  font-size: 0.875rem;
+  resize: vertical;
 }
 
-.slotBtn {
-  padding: 0.5rem;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid var(--glass-border);
-  border-radius: 6px;
-  font-size: 0.75rem;
-  color: white;
-  cursor: pointer;
+.textarea:focus {
+  outline: none;
+  border-color: var(--primary);
 }
 
 .conflictWarn {
@@ -319,4 +407,61 @@
   border-radius: 12px;
   font-weight: 600;
   cursor: pointer;
+}
+
+.confirmBtn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background: var(--primary);
+  border: none;
+  color: white;
+  padding: 1rem;
+  border-radius: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.confirmBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.confirmBtn:hover:not(:disabled) {
+  background: #2563eb;
+}
+
+/* Success State */
+.successState {
+  text-align: center;
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.successIcon {
+  color: #10b981;
+}
+
+.successState h3 {
+  font-size: 1.5rem;
+}
+
+.successState p {
+  color: var(--muted-foreground);
+}
+
+/* Spin */
+.spin {
+  animation: spin 1.5s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }

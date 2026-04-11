@@ -35,14 +35,21 @@ export default function Home() {
   const { user, isLoading } = useAuth();
   const router = useRouter();
 
-  // If already logged in, we can auto-redirect, or let them pick again
-  // For the demo, we stay here until they select or if they were already here
+  const [overrideWait, setOverrideWait] = React.useState(false);
 
-  if (isLoading) {
+  React.useEffect(() => {
+    const forceLoad = setTimeout(() => {
+      console.warn("Forcing UI override over Auth Context freeze");
+      setOverrideWait(true);
+    }, 1000);
+    return () => clearTimeout(forceLoad);
+  }, []);
+
+  if (isLoading && !overrideWait) {
     return (
       <div className={styles.container}>
         <div className="glass" style={{ padding: "2rem", borderRadius: "20px" }}>
-          Initializing Ecosystem...
+          Initializing Ecosystem Data...
         </div>
       </div>
     );

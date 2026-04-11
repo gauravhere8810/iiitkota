@@ -3,10 +3,16 @@ import { NextResponse } from "next/server";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const clubId = searchParams.get("clubId");
+  let clubId = searchParams.get("clubId");
 
   if (!clubId) {
     return NextResponse.json({ error: "Club ID required" }, { status: 400 });
+  }
+
+  // Handle frontend mock users gracefully
+  if (clubId === "club-1") {
+    const defaultClub = await prisma.club.findFirst();
+    if (defaultClub) clubId = defaultClub.id;
   }
 
   const resources = await prisma.resource.findMany({
@@ -20,10 +26,16 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const data = await request.json();
-    const { name, type, location, clubId } = data;
+    let { name, type, location, clubId } = data;
 
     if (!name || !type || !clubId) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    }
+
+    // Handle frontend mock users gracefully
+    if (clubId === "club-1") {
+      const defaultClub = await prisma.club.findFirst();
+      if (defaultClub) clubId = defaultClub.id;
     }
 
     const resource = await prisma.resource.create({

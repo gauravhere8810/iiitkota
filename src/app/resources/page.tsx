@@ -5,17 +5,20 @@ import { useAuth } from "@/context/AuthContext";
 import { 
   Search, 
   Filter, 
-  QrCode, 
   Info, 
   MapPin, 
   Clock, 
   CheckCircle2, 
   XCircle,
   AlertTriangle,
-  ArrowRight
+  ArrowRight,
+  Send,
+  ShieldCheck,
+  Loader2
 } from "lucide-react";
 import styles from "./Resources.module.css";
 import { clsx } from "clsx";
+import { supabase } from "@/lib/supabase";
 
 interface Resource {
   id: string;
@@ -24,7 +27,16 @@ interface Resource {
   status: string;
   description: string;
   location: string;
-  qrCode: string;
+}
+
+interface ResourceRequest {
+  id: string;
+  resourceId: string;
+  resourceName: string;
+  requesterName: string;
+  reason: string;
+  status: string;
+  createdAt: string;
 }
 
 export default function ResourcesPage() {
@@ -34,16 +46,49 @@ export default function ResourcesPage() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("ALL");
   
-  // States for Booking Modal
+  // Request modal state
   const [selectedResource, setSelectedResource] = useState<Resource | null>(null);
-  const [showQR, setShowQR] = useState<Resource | null>(null);
+  const [requestReason, setRequestReason] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [requestSuccess, setRequestSuccess] = useState(false);
+
+  // Add Resource modal
   const [showAddModal, setShowAddModal] = useState(false);
   const [newName, setNewName] = useState("");
   const [newType, setNewType] = useState("PHYSICAL");
   const [newLocation, setNewLocation] = useState("");
 
+  // Approval panel state
+  const [requests, setRequests] = useState<ResourceRequest[]>([]);
+  const [showApprovals, setShowApprovals] = useState(false);
+  const [approvingId, setApprovingId] = useState<string | null>(null);
+
   const activeClub = user?.clubs.find(c => c.id === activeClubId);
-  const isAuthorized = activeClub?.role === "FACULTY" || activeClub?.role === "HEAD" || user?.role === "HEAD" || user?.role === "FACULTY" || user?.role === "SAC_HEAD" || user?.role === "CLUB_HEAD" || user?.role === "SAC_MEMBER";
+  const isApprover = activeClub?.role === "SAC_HEAD" || activeClub?.role === "CLUB_HEAD";
+  const isAuthorized = isApprover || activeClub?.role === "SAC_MEMBER" || activeClub?.role === "FACULTY";
+
+  useEffect(() => {
+    if (activeClubId) {
+      setLoading(true);
+      fetch(`/api/resources?clubId=${activeClubId}`)
+        .then(res => res.json())
+        .then(data => {
+          setResources(data.resources);
+          setLoading(false);
+        });
+    }
+  }, [activeClubId]);
+
+  // Fetch pending requests for approvers
+  useEffect(() => {
+    if (isApprover && activeClubId) {
+      fetch(`/api/resources/request?clubId=${activeClubId}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.requests) setRequests(data.requests);
+        });
+    }
+  }, [isApprover, activeClubId]);
 
   const handleCreateResource = async () => {
     if (!newName || !activeClubId) return;
@@ -61,23 +106,78 @@ export default function ResourcesPage() {
     }
   };
 
-  useEffect(() => {
-    if (activeClubId) {
-      setLoading(true);
-      fetch(`/api/resources?clubId=${activeClubId}`)
-        .then(res => res.json())
-        .then(data => {
-          setResources(data.resources);
-          setLoading(false);
-        });
+  const handleRequestResource = async () => {
+    if (!selectedResource || !requestReason.trim() || !activeClubId || !user) return;
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/resources/request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          resourceId: selectedResource.id,
+          clubId: activeClubId,
+          userId: user.id,
+          userName: user.name,
+          userEmail: user.email,
+          reason: requestReason
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        
+        // Use a guaranteed physical INSERT into chat_messages to trigger Realtime on all devices flawlessly
+        await supabase.from("chat_messages").insert([
+          {
+            sender_id: user.id,
+            sender_name: "SYSTEM",
+            channel: "RESOURCE_ALERTS",
+            content: JSON.stringify({
+              id: data.request.id,
+              requesterName: user.name,
+              resourceName: selectedResource.name,
+              reason: requestReason,
+              clubId: activeClubId
+            })
+          }
+        ]);
+
+        setRequestSuccess(true);
+        setTimeout(() => {
+          setSelectedResource(null);
+          setRequestReason("");
+          setRequestSuccess(false);
+        }, 2000);
+      }
+    } catch (err) {
+      console.error("Request failed:", err);
+    } finally {
+      setSubmitting(false);
     }
-  }, [activeClubId]);
+  };
+
+  const handleApproval = async (requestId: string, action: "APPROVED" | "REJECTED") => {
+    setApprovingId(requestId);
+    try {
+      await fetch("/api/resources/request", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ requestId, action })
+      });
+      setRequests(prev => prev.map(r => r.id === requestId ? { ...r, status: action } : r));
+    } catch (err) {
+      console.error("Approval failed:", err);
+    } finally {
+      setApprovingId(null);
+    }
+  };
 
   const filteredResources = resources.filter(r => {
     const matchesSearch = r.name.toLowerCase().includes(search.toLowerCase());
     const matchesFilter = filter === "ALL" || r.type === filter;
     return matchesSearch && matchesFilter;
   });
+
+  const pendingRequests = requests.filter(r => r.status === "PENDING");
 
   return (
     <div className={styles.container}>
@@ -114,9 +214,58 @@ export default function ResourcesPage() {
                 + Add Resource
               </button>
             )}
+            {isApprover && pendingRequests.length > 0 && (
+              <button 
+                className={clsx(styles.filterBtn, styles.approvalToggle)} 
+                onClick={() => setShowApprovals(!showApprovals)}
+              >
+                <ShieldCheck size={14} />
+                {pendingRequests.length} Pending
+              </button>
+            )}
           </div>
         </div>
       </header>
+
+      {/* Approval Panel for SAC_HEAD / CLUB_HEAD */}
+      {showApprovals && isApprover && (
+        <div className={clsx(styles.approvalPanel, "glass")}>
+          <h3><ShieldCheck size={18} /> Pending Approvals</h3>
+          {pendingRequests.length === 0 ? (
+            <p className={styles.emptyApprovals}>No pending requests.</p>
+          ) : (
+            <div className={styles.approvalList}>
+              {pendingRequests.map(req => (
+                <div key={req.id} className={styles.approvalItem}>
+                  <div className={styles.approvalInfo}>
+                    <strong>{req.requesterName}</strong>
+                    <span>requests</span>
+                    <strong>{req.resourceName}</strong>
+                  </div>
+                  <p className={styles.approvalReason}>"{req.reason}"</p>
+                  <div className={styles.approvalActions}>
+                    <button 
+                      className={styles.approveBtn}
+                      onClick={() => handleApproval(req.id, "APPROVED")}
+                      disabled={approvingId === req.id}
+                    >
+                      {approvingId === req.id ? <Loader2 size={14} className={styles.spin} /> : <CheckCircle2 size={14} />}
+                      Approve
+                    </button>
+                    <button 
+                      className={styles.rejectBtn}
+                      onClick={() => handleApproval(req.id, "REJECTED")}
+                      disabled={approvingId === req.id}
+                    >
+                      <XCircle size={14} /> Reject
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className={styles.resourceGrid}>
         {filteredResources.map((resource) => (
@@ -142,83 +291,72 @@ export default function ResourcesPage() {
 
             <div className={styles.cardFooter}>
               <button 
-                className={styles.qrBtn}
-                onClick={() => setShowQR(resource)}
-                title="View QR Code"
-              >
-                <QrCode size={18} />
-              </button>
-              <button 
                 className={styles.bookBtn}
                 disabled={resource.status !== "AVAILABLE"}
                 onClick={() => setSelectedResource(resource)}
               >
-                {resource.status === "AVAILABLE" ? "Book Now" : "Waitlist"}
+                {resource.status === "AVAILABLE" ? (
+                  <><Send size={14} /> Request Access</>
+                ) : (
+                  "Unavailable"
+                )}
               </button>
             </div>
           </div>
         ))}
       </div>
 
-      {/* QR Simulation Modal */}
-      {showQR && (
-        <div className={styles.modalOverlay} onClick={() => setShowQR(null)}>
-          <div className={clsx(styles.qrModal, "glass")} onClick={e => e.stopPropagation()}>
-            <div className={styles.qrHeader}>
-              <h3>Resource QR Code</h3>
-              <p>{showQR.name}</p>
-            </div>
-            <div className={styles.qrContent}>
-              <div className={styles.qrPlaceholder}>
-                <QrCode size={160} strokeWidth={1} />
-                <div className={styles.qrIndicator}>SCAN TO CHECK-IN/OUT</div>
+      {/* Request Access Modal */}
+      {selectedResource && (
+        <div className={styles.modalOverlay} onClick={() => { setSelectedResource(null); setRequestSuccess(false); setRequestReason(""); }}>
+          <div className={clsx(styles.bookingModal, "glass")} onClick={e => e.stopPropagation()}>
+            {requestSuccess ? (
+              <div className={styles.successState}>
+                <CheckCircle2 size={48} className={styles.successIcon} />
+                <h3>Request Submitted!</h3>
+                <p>Your request has been sent to leadership for approval.</p>
               </div>
-              <div className={styles.qrCodeText}>{showQR.qrCode}</div>
-            </div>
-            <button className={styles.simulateScanBtn} onClick={() => {
-              alert("SIMULATION: Scanning QR... Redirecting to action page.");
-              setShowQR(null);
-            }}>
-              Simulate Mobile Scan <ArrowRight size={16} />
-            </button>
+            ) : (
+              <>
+                <h3>Request: {selectedResource.name}</h3>
+                <div className={styles.bookingForm}>
+                  <div className={styles.resourceInfo}>
+                    <div className={styles.metaItem}><MapPin size={14} /> {selectedResource.location || "On-site"}</div>
+                    <div className={styles.metaItem}><Info size={14} /> {selectedResource.type}</div>
+                  </div>
+                  <div className={styles.formGroup}>
+                    <label>Reason for Request</label>
+                    <textarea 
+                      placeholder="Briefly explain why you need this resource..."
+                      value={requestReason}
+                      onChange={e => setRequestReason(e.target.value)}
+                      className={styles.textarea}
+                      rows={3}
+                    />
+                  </div>
+                  <div className={styles.conflictWarn}>
+                    <AlertTriangle size={14} />
+                    <span>Your request will be reviewed by SAC Head or Club Head before access is granted.</span>
+                  </div>
+                </div>
+                <div className={styles.modalActions}>
+                  <button className={styles.cancelBtn} onClick={() => { setSelectedResource(null); setRequestReason(""); }}>Cancel</button>
+                  <button 
+                    className={styles.confirmBtn} 
+                    onClick={handleRequestResource}
+                    disabled={!requestReason.trim() || submitting}
+                  >
+                    {submitting ? <Loader2 size={16} className={styles.spin} /> : <Send size={16} />}
+                    Submit Request
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
 
-      {/* Booking Modal Simulation */}
-      {selectedResource && (
-        <div className={styles.modalOverlay} onClick={() => setSelectedResource(null)}>
-          <div className={clsx(styles.bookingModal, "glass")} onClick={e => e.stopPropagation()}>
-            <h3>Reserve {selectedResource.name}</h3>
-            <div className={styles.bookingForm}>
-              <div className={styles.formGroup}>
-                <label>Date</label>
-                <input type="date" defaultValue={new Date().toISOString().split('T')[0]} />
-              </div>
-              <div className={styles.formGroup}>
-                <label>Time Slot</label>
-                <div className={styles.slots}>
-                  {["09:00", "11:00", "13:00", "15:00"].map(t => (
-                    <button key={t} className={styles.slotBtn}>{t}</button>
-                  ))}
-                </div>
-              </div>
-              <div className={styles.conflictWarn}>
-                <AlertTriangle size={14} />
-                <span>Simulated Check: 2 members on waitlist for this slot.</span>
-              </div>
-            </div>
-            <div className={styles.modalActions}>
-              <button className={styles.cancelBtn} onClick={() => setSelectedResource(null)}>Cancel</button>
-              <button className={styles.confirmBtn} onClick={() => {
-                alert("Booking Request Sent! Triggering live feed update...");
-                setSelectedResource(null);
-              }}>Confirm Booking</button>
-            </div>
-          </div>
-        </div>
-      )}
-      {/* Add Resource Modal Simulation */}
+      {/* Add Resource Modal */}
       {showAddModal && (
         <div className={styles.modalOverlay} onClick={() => setShowAddModal(false)}>
           <div className={clsx(styles.bookingModal, "glass")} onClick={e => e.stopPropagation()}>
