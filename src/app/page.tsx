@@ -55,7 +55,7 @@ export default function Home() {
         <p>A unified digital ecosystem for campus hierarchy, collaboration, and resource transparency.</p>
         
         {isLoading && !overrideWait ? (
-           <div className="glass" style={{ marginTop: '2rem', padding: '1rem', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '0.75rem', maxWidth: '300px', margin: '2rem auto 0' }}>
+           <div className="glass" style={{ padding: '1rem', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '0.75rem', maxWidth: '300px', margin: '2rem auto 0' }}>
              <Loader2 className="spin" size={16} />
              <span style={{ fontSize: '0.9rem' }}>Initializing identity...</span>
            </div>
