@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useAuth, Role, ROLE_HIERARCHY } from "@/context/AuthContext";
 import { notFound, useRouter } from "next/navigation";
 import { 
@@ -17,7 +17,11 @@ import {
   Plus,
   Send,
   Loader2,
-  CheckCircle2
+  CheckCircle2,
+  Megaphone,
+  Clock,
+  Check,
+  X
 } from "lucide-react";
 import styles from "./RoleDashboard.module.css";
 import { clsx } from "clsx";
@@ -39,21 +43,25 @@ export default function RoleDashboard({ params }: PageProps) {
   const [eventDesc, setEventDesc] = React.useState("");
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [showSuccess, setShowSuccess] = React.useState(false);
-  
+
   // Map slug back to enum
   const roleEnum = roleSlug.toUpperCase().replace("-", "_") as Role;
-  
+
+  useEffect(() => {
+    // Redirect if no user (safety)
+    if (!user) return;
+  }, [user]);
+
   if (!ROLE_HIERARCHY[roleEnum]) {
     return notFound();
   }
 
   // Simulate unauthorized if the logged-in user doesn't match the role or hierarchy
-  // For this demo, we'll allow viewing if current role matches
   if (!user || user.role !== roleEnum) {
     return (
       <div className={styles.locked}>
         <Lock size={48} />
-        <h1>Access Restricted balance</h1>
+        <h1>Access Restricted</h1>
         <p>You need to be logged in as a <strong>{roleEnum.replace("_", " ")}</strong> to view this portal.</p>
         <button onClick={() => router.push("/login")}>Go to Login</button>
       </div>
@@ -252,7 +260,7 @@ function ClubHeadEventsFeed() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [supabase]);
+  }, []);
 
   return (
     <div className={clsx(styles.card, "glass")} style={{ gridColumn: "1 / -1", border: "1px solid rgba(59, 130, 246, 0.3)" }}>
@@ -269,11 +277,16 @@ function ClubHeadEventsFeed() {
               <li key={ev.id || i} style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", padding: "1rem", background: "rgba(255,255,255,0.05)", borderRadius: "12px", border: "1px solid rgba(255,255,255,0.1)" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", width: "100%", marginBottom: "0.25rem" }}>
                   <strong style={{ fontSize: "1.1rem", color: "white" }}>{ev.title || "Untitled Event"}</strong>
-                  <span style={{ fontSize: "0.75rem", color: "#10b981", background: "rgba(16, 185, 129, 0.2)", padding: "2px 8px", borderRadius: "100px" }}>NEW</span>
+                  <div style={{ display: "flex", gap: "8px" }}>
+                     <span style={{ fontSize: "0.75rem", color: "#10b981", background: "rgba(16, 185, 129, 0.2)", padding: "2px 8px", borderRadius: "100px" }}>NEW</span>
+                     <button style={{ background: "rgba(59,130,246,0.2)", border: "none", borderRadius: "4px", color: "#3b82f6", cursor: "pointer", padding: "2px 6px" }}><Check size={12} /></button>
+                     <button style={{ background: "rgba(239,68,68,0.2)", border: "none", borderRadius: "4px", color: "#ef4444", cursor: "pointer", padding: "2px 6px" }}><X size={12} /></button>
+                  </div>
                 </div>
-                <p style={{ color: "var(--muted-foreground)", fontSize: "0.875rem", marginBottom: "0.75rem" }}>{ev.description || "No description provided."}</p>
-                <div style={{ display: "flex", gap: "1rem", fontSize: "0.75rem", color: "rgba(255,255,255,0.6)" }}>
+                <p style={{ color: "rgba(255,255,255,0.6)", fontSize: "0.875rem", marginBottom: "0.75rem" }}>{ev.description || "No description provided."}</p>
+                <div style={{ display: "flex", gap: "1rem", fontSize: "0.75rem", color: "rgba(255,255,255,0.4)" }}>
                   <span style={{ display: "flex", alignItems: "center", gap: "4px" }}><User size={12} /> {ev.created_by_name || "Club Member"}</span>
+                  <span style={{ display: "flex", alignItems: "center", gap: "4px" }}><Clock size={12} /> {ev.created_at ? new Date(ev.created_at).toLocaleTimeString() : "Just now"}</span>
                 </div>
               </li>
             ))}
