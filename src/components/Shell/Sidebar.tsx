@@ -27,10 +27,8 @@ const navItems = [
   { name: "Announcements", href: "/announcements", icon: Megaphone },
   { name: "Members", href: "/members", icon: Users },
   { name: "Resources", href: "/resources", icon: Package },
-  { name: "Live Feed", href: "/feed", icon: Activity },
   { name: "Chat", href: "/chat", icon: MessageSquare },
   { name: "Polls", href: "/polls", icon: Vote },
-  { name: "Analytics", href: "/analytics", icon: BarChart3 },
 ];
 
 export default function Sidebar() {
