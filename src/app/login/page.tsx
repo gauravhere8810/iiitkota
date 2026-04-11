@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { useAuth, Role } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 import { Shield, User, Users, Star, Trophy, ArrowRight } from "lucide-react";
-import styles from "./Login.module.css";
+import styles from "./login.module.css";
 import { clsx } from "clsx";
 
 const ROLES: { name: string; value: Role; icon: any; color: string; desc: string }[] = [
