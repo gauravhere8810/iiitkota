@@ -66,8 +66,25 @@ export function useChat(channel?: string, clubId?: string) {
           if (!channel || newMsg.channel === channel) {
             console.log("Cloud message received:", newMsg);
             setMessages((current) => {
-              // Check for duplicates to prevent double-rendering during optimistic loads
+              // 1. Check if we already have this exact ID
               if (current.some(m => m.id === newMsg.id)) return current;
+
+              // 2. Check for "optimistic" messages that match this new real message
+              // Matching criteria: same content, same sender, and has a temp ID
+              const optimisticIndex = current.findIndex(m => 
+                m.id.startsWith("temp-") && 
+                m.content === newMsg.content && 
+                m.sender_id === newMsg.sender_id &&
+                m.channel === newMsg.channel
+              );
+
+              if (optimisticIndex !== -1) {
+                // Replace the temporary message with the real one from the DB
+                const updated = [...current];
+                updated[optimisticIndex] = newMsg;
+                return updated;
+              }
+
               return [...current, newMsg];
             });
           }
@@ -88,7 +105,12 @@ export function useChat(channel?: string, clubId?: string) {
     try {
       // 1. Primary: Cloud Sync (Supabase)
       const { error } = await supabase.from("chat_messages").insert([
-        { sender_id, sender_name: senderName, content, channel: targetChannel }
+        { 
+          sender_id, 
+          sender_name: senderName, 
+          content, 
+          channel: targetChannel,
+        }
       ]);
       
       if (error) {

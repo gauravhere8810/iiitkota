@@ -1,60 +1,51 @@
 import { supabase } from "@/lib/supabase";
 import { NextResponse } from "next/server";
 
-function localSummarize(messages: Array<{ user: { name: string }; content: string; createdAt: Date }>, channel: string): string {
-  const participants = Array.from(new Set(messages.map(m => m.user.name)));
+function localSummarize(messages: any[], channel: string): string {
+  const participants = Array.from(new Set(messages.map(m => m.sender_name)));
   
   // Group messages by participant
   const byParticipant: Record<string, string[]> = {};
   for (const m of messages) {
-    if (!byParticipant[m.user.name]) byParticipant[m.user.name] = [];
-    byParticipant[m.user.name].push(m.content);
+    if (!byParticipant[m.sender_name]) byParticipant[m.sender_name] = [];
+    byParticipant[m.sender_name].push(m.content);
   }
 
   // Extract key words
   const stopWords = new Set(["the", "a", "an", "is", "are", "was", "were", "be", "been", "have", "has", "had", "do", "does", "did", "will", "would", "could", "should", "may", "might", "can", "need", "to", "of", "in", "for", "on", "with", "at", "by", "from", "as", "into", "through", "during", "before", "after", "between", "out", "off", "over", "under", "again", "then", "once", "here", "there", "when", "where", "why", "how", "all", "each", "every", "both", "few", "more", "most", "other", "some", "such", "no", "nor", "not", "only", "own", "same", "so", "than", "too", "very", "just", "because", "but", "and", "or", "if", "while", "about", "up", "it", "its", "i", "me", "my", "we", "our", "you", "your", "he", "him", "his", "she", "her", "they", "them", "their", "this", "that", "these", "those", "what", "which", "who", "whom", "lets", "let", "yeah", "yep", "hey", "okay", "sure", "think", "like", "know", "going", "also", "well", "down", "been"]);
   
   const wordFreq: Record<string, number> = {};
-  const allText = messages.map(m => m.content).join(" ").toLowerCase();
-  allText.split(/\W+/).forEach(word => {
-    if (word.length > 3 && !stopWords.has(word)) {
-      wordFreq[word] = (wordFreq[word] || 0) + 1;
-    }
+  messages.forEach(m => {
+    m.content.toLowerCase().split(/\W+/).forEach((word: string) => {
+      if (word.length > 3 && !stopWords.has(word)) {
+        wordFreq[word] = (wordFreq[word] || 0) + 1;
+      }
+    });
   });
   
   const topTopics = Object.entries(wordFreq)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5)
-    .map(([word]) => word);
-
-  // Build time range
-  const earliest = messages[0].createdAt;
-  const latest = messages[messages.length - 1].createdAt;
-  const timeRange = `${earliest.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} – ${latest.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    .map(([word]) => word.charAt(0).toUpperCase() + word.slice(1));
 
   // Build summary
-  let summary = `📋 Summary of ${messages.length} messages in #${channel.toLowerCase()} (${timeRange})\n\n`;
+  let summary = `📋 [Fallback Summary] #${channel.toLowerCase()} Coordination (${messages.length} messages)\n\n`;
   
   summary += `👥 Participants: ${participants.join(", ")}\n\n`;
   
   if (topTopics.length > 0) {
-    summary += `🔑 Key Topics: ${topTopics.join(", ")}\n\n`;
+    summary += `🎯 Primary Focus: ${topTopics.join(", ")}\n\n`;
   }
 
-  summary += `💬 Key Points:\n`;
-  // Pick the most substantial messages (longest = most informative)
-  const substantialMessages = [...messages]
-    .sort((a, b) => b.content.length - a.content.length)
-    .slice(0, Math.min(5, messages.length));
-  
-  // Re-sort by time
-  substantialMessages.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
-  
-  for (const m of substantialMessages) {
-    summary += `• ${m.user.name}: ${m.content}\n`;
-  }
+  summary += `📝 Highlights:\n`;
+  const counts: Record<string, number> = {};
+  messages.forEach(m => counts[m.sender_name] = (counts[m.sender_name] || 0) + 1);
+  const mainContributor = Object.entries(counts).sort((a,b) => b[1] - a[1])[0][0];
 
-  summary += `\n📊 Activity: ${participants.map(p => `${p} (${byParticipant[p].length} msgs)`).join(", ")}`;
+  summary += `• Discussion centered around ${topTopics[0] || 'active coordination'} and related topics.\n`;
+  summary += `• ${mainContributor} provided the most significant input during this period.\n`;
+  summary += `• The team exchanged ${Math.round(messages.length / participants.length)} points per person on average.\n`;
+  summary += `• Conversation concluded with a focus on ${topTopics[1] || 'current goals'}.\n`;
 
   return summary;
 }
@@ -107,11 +98,11 @@ export async function POST(request: Request) {
             "Authorization": `Bearer ${apiKey}`
           },
           body: JSON.stringify({
-            model: "grok-2",
+            model: "grok-beta",
             messages: [
               {
                 role: "system",
-                content: "Summarize this chat transcript. Return ONLY bullet points of key discussion points and decisions. No intro or outro text."
+                content: "Synthesize this chat transcript into a concise executive summary for a leadership team. Focus on outcomes and resolved points. Do NOT include raw quotes or dialogue. Instead, synthesize the core meaning. Return ONLY bullet points grouped by 'Decisions', 'Key Discussions', and 'Action Items'. No intro or outro text."
               },
               {
                 role: "user",
