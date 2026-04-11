@@ -279,8 +279,14 @@ function ClubHeadEventsFeed() {
                   <strong style={{ fontSize: "1.1rem", color: "white" }}>{ev.title || "Untitled Event"}</strong>
                   <div style={{ display: "flex", gap: "8px" }}>
                      <span style={{ fontSize: "0.75rem", color: "#10b981", background: "rgba(16, 185, 129, 0.2)", padding: "2px 8px", borderRadius: "100px" }}>NEW</span>
-                     <button style={{ background: "rgba(59,130,246,0.2)", border: "none", borderRadius: "4px", color: "#3b82f6", cursor: "pointer", padding: "2px 6px" }}><Check size={12} /></button>
-                     <button style={{ background: "rgba(239,68,68,0.2)", border: "none", borderRadius: "4px", color: "#ef4444", cursor: "pointer", padding: "2px 6px" }}><X size={12} /></button>
+                     <button 
+                        onClick={() => setEvents(curr => curr.filter(e => e.id !== ev.id))}
+                        style={{ background: "rgba(59,130,246,0.2)", border: "none", borderRadius: "4px", color: "#3b82f6", cursor: "pointer", padding: "2px 6px" }}
+                     ><Check size={12} /></button>
+                     <button 
+                        onClick={() => setEvents(curr => curr.filter(e => e.id !== ev.id))}
+                        style={{ background: "rgba(239,68,68,0.2)", border: "none", borderRadius: "4px", color: "#ef4444", cursor: "pointer", padding: "2px 6px" }}
+                     ><X size={12} /></button>
                   </div>
                 </div>
                 <p style={{ color: "rgba(255,255,255,0.6)", fontSize: "0.875rem", marginBottom: "0.75rem" }}>{ev.description || "No description provided."}</p>
