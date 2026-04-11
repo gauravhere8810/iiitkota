@@ -199,7 +199,7 @@ export default function RoleDashboard({ params }: PageProps) {
                                 startTime: new Date().toISOString(),
                                 endTime: new Date().toISOString(),
                                 clubId: "collaboration-hub",
-                                role_origin: "PENDING"
+                                status: "PENDING"
                               }
                             ]);
                             if (!error) {
@@ -319,10 +319,7 @@ function ClubHeadEventsFeed() {
     const fetchEvents = async () => {
       try {
         const { data } = await supabase.from("events").select("*").order("created_at", { ascending: false });
-        if (data) {
-          console.log("DEBUG: Keys in first event object:", Object.keys(data[0] || {}));
-          setEvents(data);
-        }
+        if (data) setEvents(data);
       } catch (e) {}
     };
     fetchEvents();
@@ -352,14 +349,14 @@ function ClubHeadEventsFeed() {
     try {
       const { error } = await supabase
         .from("events")
-        .update({ role_origin: status })
+        .update({ status })
         .eq("id", id);
       
       if (error) {
         throw new Error(error.message || "Update failed");
       }
       
-      console.log("Update successful via role_origin mapping!");
+      console.log("Update successful via Supabase!");
     } catch (err: any) {
       console.error("Critical Update Failure:", err.message || err);
     } finally {
@@ -367,8 +364,8 @@ function ClubHeadEventsFeed() {
     }
   };
 
-  const pending = events.filter(e => !e.role_origin || e.role_origin === "PENDING" || e.role_origin === "UPCOMING");
-  const history = events.filter(e => e.role_origin === "APPROVED" || e.role_origin === "REJECTED");
+  const pending = events.filter(e => !e.status || e.status === "PENDING");
+  const history = events.filter(e => e.status === "APPROVED" || e.status === "REJECTED");
 
   return (
     <>
@@ -434,9 +431,9 @@ function ClubHeadEventsFeed() {
                   <div style={{ 
                     fontSize: "0.7rem", 
                     fontWeight: "600",
-                    color: ev.role_origin === "APPROVED" ? "#10b981" : "#ef4444"
+                    color: ev.status === "APPROVED" ? "#10b981" : "#ef4444"
                   }}>
-                    {ev.role_origin}
+                    {ev.status}
                   </div>
                 </li>
               ))}
