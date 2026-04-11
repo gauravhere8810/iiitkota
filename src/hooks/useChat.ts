@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 
 export interface ChatMessage {
@@ -9,30 +9,48 @@ export interface ChatMessage {
   sender_id: string;
   sender_name: string;
   content: string;
+  channel?: string;
 }
 
-export function useChat() {
+export function useChat(channel?: string, clubId?: string) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isConnecting, setIsConnecting] = useState(true);
 
-  // Fetch initial messages
   useEffect(() => {
     const fetchMessages = async () => {
-      const { data } = await supabase
+      setIsConnecting(true);
+      let query = supabase
         .from("chat_messages")
         .select("*")
         .order("created_at", { ascending: true })
         .limit(50);
       
-      if (data) setMessages(data as ChatMessage[]);
+      // Filter by channel if column exists
+      if (channel) {
+        query = query.eq("channel", channel);
+      }
+
+      const { data, error } = await query;
+      
+      if (error && error.code === "42703") {
+        // Column doesn't exist yet — fetch all without filter
+        const { data: allData } = await supabase
+          .from("chat_messages")
+          .select("*")
+          .order("created_at", { ascending: true })
+          .limit(50);
+        if (allData) setMessages(allData as ChatMessage[]);
+      } else if (data) {
+        setMessages(data as ChatMessage[]);
+      }
       setIsConnecting(false);
     };
 
     fetchMessages();
 
-    // Subscribe to new messages being inserted remotely
-    const channel = supabase
-      .channel("hq-room")
+    // Subscribe to new messages in real-time
+    const sub = supabase
+      .channel(`chat-${channel || "all"}`)
       .on(
         "postgres_changes",
         {
@@ -41,22 +59,30 @@ export function useChat() {
           table: "chat_messages",
         },
         (payload) => {
-          setMessages((current) => [...current, payload.new as ChatMessage]);
+          const newMsg = payload.new as ChatMessage;
+          // Only add if matching channel (or no channel filter)
+          if (!channel || newMsg.channel === channel || !newMsg.channel) {
+            setMessages((current) => {
+              if (current.some(m => m.id === newMsg.id)) return current;
+              return [...current, newMsg];
+            });
+          }
         }
       )
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(sub);
     };
-  }, []);
+  }, [channel, clubId]);
 
-  const sendMessage = async (sender_id: string, sender_name: string, content: string) => {
-    const { error } = await supabase.from("chat_messages").insert([
-      { sender_id, sender_name, content }
-    ]);
+  const sendMessage = useCallback(async (sender_id: string, sender_name: string, content: string) => {
+    const insertData: Record<string, string> = { sender_id, sender_name, content };
+    if (channel) insertData.channel = channel;
+    
+    const { error } = await supabase.from("chat_messages").insert([insertData]);
     if (error) console.error("Error sending message:", error);
-  };
+  }, [channel]);
 
   return { messages, sendMessage, isConnecting };
 }

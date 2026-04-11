@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { useChat } from "@/hooks/useChat";
 import { 
   Send, 
   Megaphone, 
@@ -35,84 +36,43 @@ interface Message {
 export default function ChatPage() {
   const { user, activeClubId } = useAuth();
   const [channel, setChannel] = useState<"INFORMAL" | "FORMAL">("INFORMAL");
-  const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState("");
   const [isSummarizing, setIsSummarizing] = useState(false);
   const [summary, setSummary] = useState<string | null>(null);
   const [showSummaryModal, setShowSummaryModal] = useState(false);
   const [summaryHours, setSummaryHours] = useState(24);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const activeClub = user?.clubs.find(c => c.id === activeClubId);
   const isTopRole = activeClub?.role === "SAC_HEAD" || activeClub?.role === "SAC_MEMBER" || activeClub?.role === "CLUB_HEAD";
 
+  // Supabase Realtime chat
+  const { messages: supaMessages, sendMessage, isConnecting } = useChat(channel, activeClubId || undefined);
+
+  // Convert Supabase messages to our UI format
+  const messages: Message[] = supaMessages.map(m => ({
+    id: m.id,
+    sender: m.sender_name,
+    content: m.content,
+    timestamp: new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  }));
+
+  // Auto-scroll to bottom on new messages
   useEffect(() => {
-    // Core members cannot see FORMAL, but can see INFORMAL
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages.length]);
+
+  useEffect(() => {
     if (!isTopRole && channel === "FORMAL") {
       setChannel("INFORMAL");
     }
   }, [isTopRole, channel]);
 
-  // Fetch history from database
-  useEffect(() => {
-    if (activeClubId) {
-      fetch(`/api/chat?clubId=${activeClubId}&channel=${channel}`)
-        .then(res => res.json())
-        .then(data => {
-          if (data.messages) {
-            setMessages(data.messages);
-          } else {
-            // Fallback to mock if API fails or is empty for demo feel
-            const mockMessages = channel === "INFORMAL" ? [
-              { id: "1", sender: "Charlie Dev", content: "Hey anyone up for a late night coding session?", timestamp: "10:30 PM" },
-              { id: "2", sender: "Eve Coder", content: "I'm down! In the lab?", timestamp: "10:32 PM" },
-              { id: "3", sender: "Charlie Dev", content: "Yep, see ya there.", timestamp: "10:35 PM" },
-            ] : [
-              { id: "201", sender: "Dr. Alice Smith", content: "Let's review the finalized budget for the tech symposium.", timestamp: "11:00 AM" },
-              { id: "202", sender: "Admin Bob", content: "Agreed. I will upload the Excel spec sheet soon.", timestamp: "11:15 AM" },
-            ];
-            setMessages(mockMessages);
-          }
-        });
-    }
-  }, [activeClubId, channel]);
-
   const handleSend = async () => {
-    if (!inputText.trim() || !activeClubId || !user) return;
-    
-    const tempId = Date.now().toString();
-    const newMessage = {
-      id: tempId,
-      sender: user.name,
-      content: inputText,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    };
-    
-    // Optimistic update
-    setMessages([...messages, newMessage]);
+    if (!inputText.trim() || !user) return;
+    await sendMessage(user.id, user.name, inputText);
     setInputText("");
-
-    try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          content: inputText,
-          channel: channel,
-          clubId: activeClubId,
-          userId: user.id,
-          userName: user.name,
-          userEmail: user.email
-        })
-      });
-      const data = await res.json();
-      if (data.message) {
-        // Replace temp message with real one from DB
-        setMessages(prev => prev.map(m => m.id === tempId ? data.message : m));
-      }
-    } catch (error) {
-      console.error("Failed to save message:", error);
-    }
   };
 
   const handleSummarize = async () => {
@@ -142,23 +102,12 @@ export default function ChatPage() {
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file || !user) return;
 
-    const fileUrl = URL.createObjectURL(file);
-    const newMessage: Message = {
-      id: Date.now().toString(),
-      sender: user?.name || "Unknown",
-      content: inputText || "Sent a file",
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      fileUrl,
-      fileType: file.type,
-      fileName: file.name
-    };
-    
-    setMessages([...messages, newMessage]);
+    // Send file name as message via Supabase
+    sendMessage(user.id, user.name, `📎 Shared file: ${file.name}`);
     setInputText("");
     
-    // Reset input
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -250,6 +199,7 @@ export default function ChatPage() {
               </div>
             </div>
           ))}
+          <div ref={messagesEndRef} />
         </div>
 
         <div className={styles.inputArea}>

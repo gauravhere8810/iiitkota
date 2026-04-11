@@ -1,11 +1,66 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
+function localSummarize(messages: Array<{ user: { name: string }; content: string; createdAt: Date }>, channel: string): string {
+  const participants = Array.from(new Set(messages.map(m => m.user.name)));
+  
+  // Group messages by participant
+  const byParticipant: Record<string, string[]> = {};
+  for (const m of messages) {
+    if (!byParticipant[m.user.name]) byParticipant[m.user.name] = [];
+    byParticipant[m.user.name].push(m.content);
+  }
+
+  // Extract key words
+  const stopWords = new Set(["the", "a", "an", "is", "are", "was", "were", "be", "been", "have", "has", "had", "do", "does", "did", "will", "would", "could", "should", "may", "might", "can", "need", "to", "of", "in", "for", "on", "with", "at", "by", "from", "as", "into", "through", "during", "before", "after", "between", "out", "off", "over", "under", "again", "then", "once", "here", "there", "when", "where", "why", "how", "all", "each", "every", "both", "few", "more", "most", "other", "some", "such", "no", "nor", "not", "only", "own", "same", "so", "than", "too", "very", "just", "because", "but", "and", "or", "if", "while", "about", "up", "it", "its", "i", "me", "my", "we", "our", "you", "your", "he", "him", "his", "she", "her", "they", "them", "their", "this", "that", "these", "those", "what", "which", "who", "whom", "lets", "let", "yeah", "yep", "hey", "okay", "sure", "think", "like", "know", "going", "also", "well", "down", "been"]);
+  
+  const wordFreq: Record<string, number> = {};
+  const allText = messages.map(m => m.content).join(" ").toLowerCase();
+  allText.split(/\W+/).forEach(word => {
+    if (word.length > 3 && !stopWords.has(word)) {
+      wordFreq[word] = (wordFreq[word] || 0) + 1;
+    }
+  });
+  
+  const topTopics = Object.entries(wordFreq)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([word]) => word);
+
+  // Build time range
+  const earliest = messages[0].createdAt;
+  const latest = messages[messages.length - 1].createdAt;
+  const timeRange = `${earliest.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} – ${latest.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+
+  // Build summary
+  let summary = `📋 Summary of ${messages.length} messages in #${channel.toLowerCase()} (${timeRange})\n\n`;
+  
+  summary += `👥 Participants: ${participants.join(", ")}\n\n`;
+  
+  if (topTopics.length > 0) {
+    summary += `🔑 Key Topics: ${topTopics.join(", ")}\n\n`;
+  }
+
+  summary += `💬 Key Points:\n`;
+  // Pick the most substantial messages (longest = most informative)
+  const substantialMessages = [...messages]
+    .sort((a, b) => b.content.length - a.content.length)
+    .slice(0, Math.min(5, messages.length));
+  
+  // Re-sort by time
+  substantialMessages.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+  
+  for (const m of substantialMessages) {
+    summary += `• ${m.user.name}: ${m.content}\n`;
+  }
+
+  summary += `\n📊 Activity: ${participants.map(p => `${p} (${byParticipant[p].length} msgs)`).join(", ")}`;
+
+  return summary;
+}
+
 export async function POST(request: Request) {
   const apiKey = process.env.XAI_API_KEY;
-  if (!apiKey) {
-    return NextResponse.json({ error: "AI API key not configured" }, { status: 500 });
-  }
 
   try {
     const { clubId, channel, hours } = await request.json();
@@ -15,17 +70,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Missing parameters" }, { status: 400 });
     }
 
-    // Handle mock club ID
     if (finalClubId === "club-1") {
       const defaultClub = await prisma.club.findFirst();
       if (defaultClub) finalClubId = defaultClub.id;
     }
 
-    // Calculate time threshold
     const timeThreshold = new Date();
     timeThreshold.setHours(timeThreshold.getHours() - (hours || 24));
 
-    // Fetch messages
     const messages = await prisma.chatMessage.findMany({
       where: {
         clubId: finalClubId,
@@ -37,62 +89,54 @@ export async function POST(request: Request) {
     });
 
     if (messages.length === 0) {
-      return NextResponse.json({ summary: "No messages found in the selected timeframe to summarize." });
+      return NextResponse.json({ summary: "No messages found in the selected timeframe." });
     }
 
-    // Prepare text for AI
-    const chatTranscript = messages.map(m => `[${m.createdAt.toISOString()}] ${m.user.name}: ${m.content}`).join("\n");
+    const chatTranscript = messages.map(m => `${m.user.name}: ${m.content}`).join("\n");
 
-    // Call xAI Grok
-    console.log(`Requesting summary from xAI with ${messages.length} messages using grok-2...`);
-    
+    // Try xAI first
     let summary = "";
-    try {
-      const response = await fetch("https://api.x.ai/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          model: "grok-2",
-          messages: [
-            {
-            role: "system",
-            content: "You are an AI assistant that summarizes chat transcripts. Provide a concise, bulleted summary of the main points and decisions. Return ONLY the summary. Do not include introductory text, conversational filler, or headers like 'Here is the summary'."
+    if (apiKey) {
+      try {
+        const response = await fetch("https://api.x.ai/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${apiKey}`
           },
-          {
-            role: "user",
-            content: `Summarize this chat:\n\n${chatTranscript}`
-          }
-        ]
-      })
-    });
+          body: JSON.stringify({
+            model: "grok-2",
+            messages: [
+              {
+                role: "system",
+                content: "Summarize this chat transcript. Return ONLY bullet points of key discussion points and decisions. No intro or outro text."
+              },
+              {
+                role: "user",
+                content: chatTranscript
+              }
+            ]
+          })
+        });
 
-    if (response.ok) {
-      const aiData = await response.json();
-      summary = aiData.choices?.[0]?.message?.content || "";
-    } else {
-      const errorText = await response.text();
-      console.error(`xAI API Error ${response.status}:`, errorText);
+        if (response.ok) {
+          const aiData = await response.json();
+          summary = aiData.choices?.[0]?.message?.content || "";
+        }
+      } catch (err) {
+        console.error("xAI Error:", err);
+      }
     }
-  } catch (err) {
-    console.error("AI Error:", err);
-  }
 
-  // FALLBACK: Clean summary
-  if (!summary) {
-    const participants = Array.from(new Set(messages.map(m => m.user.name))).join(", ");
-    summary = `**Key Participants:** ${participants}\n\n` +
-              `• Coordination regarding logistical updates and assignments.\n` +
-              `• Review of proposed budgets and symposium documentation.\n` +
-              `• Confirmation of venue arrangements and deadlines.`;
-  }
+    // Fallback: Smart local summarizer
+    if (!summary) {
+      summary = localSummarize(messages, channel);
+    }
 
-  return NextResponse.json({ summary });
+    return NextResponse.json({ summary });
 
   } catch (error) {
-    console.error("AI Summarization error:", error);
+    console.error("Summarization error:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
