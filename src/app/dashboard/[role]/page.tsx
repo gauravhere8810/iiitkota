@@ -229,6 +229,7 @@ export default function RoleDashboard({ params }: PageProps) {
           </div>
         )}
         {roleEnum === "CLUB_HEAD" && <ClubHeadEventsFeed />}
+        {roleEnum === "CORE_MEMBER" && <CoreMemberEventsFeed userName={user?.name || ""} />}
       </div>
     </div>
   );
@@ -292,6 +293,72 @@ function ClubHeadEventsFeed() {
                 <p style={{ color: "rgba(255,255,255,0.6)", fontSize: "0.875rem", marginBottom: "0.75rem" }}>{ev.description || "No description provided."}</p>
                 <div style={{ display: "flex", gap: "1rem", fontSize: "0.75rem", color: "rgba(255,255,255,0.4)" }}>
                   <span style={{ display: "flex", alignItems: "center", gap: "4px" }}><User size={12} /> {ev.created_by_name || "Club Member"}</span>
+                  <span style={{ display: "flex", alignItems: "center", gap: "4px" }}><Clock size={12} /> {ev.created_at ? new Date(ev.created_at).toLocaleTimeString() : "Just now"}</span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CoreMemberEventsFeed({ userName }: { userName: string }) {
+  const [events, setEvents] = React.useState<any[]>([]);
+
+  React.useEffect(() => {
+    if (!userName) return;
+    const fetchEvents = async () => {
+      try {
+        const { data } = await supabase
+          .from("events")
+          .select("*")
+          .eq("created_by_name", userName)
+          .order("created_at", { ascending: false })
+          .limit(10);
+        if (data) setEvents(data);
+      } catch (e) {}
+    };
+    fetchEvents();
+
+    const channel = supabase
+      .channel("core-member-events-feed")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "events", filter: `created_by_name=eq.${userName}` },
+        (payload: any) => {
+          setEvents((curr) => [payload.new, ...curr]);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [userName]);
+
+  return (
+    <div className={clsx(styles.card, "glass")} style={{ gridColumn: "1 / -1", border: "1px solid rgba(16, 185, 129, 0.3)" }}>
+      <div className={styles.cardHeader} style={{ backgroundColor: "rgba(16, 185, 129, 0.1)" }}>
+        <Activity size={20} color="#10b981" />
+        <h3 style={{ color: "#10b981" }}>Your Sent Event Proposals</h3>
+      </div>
+      <div className={styles.content}>
+        {events.length === 0 ? (
+          <p className={styles.empty}>You have not proposed any events yet.</p>
+        ) : (
+          <ul className={styles.taskList} style={{ display: "flex", flexDirection: "column", gap: "1rem", marginTop: "1rem" }}>
+            {events.map((ev, i) => (
+              <li key={ev.id || i} style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", padding: "1rem", background: "rgba(255,255,255,0.05)", borderRadius: "12px", border: "1px solid rgba(255,255,255,0.1)" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", width: "100%", marginBottom: "0.25rem" }}>
+                  <strong style={{ fontSize: "1.1rem", color: "white" }}>{ev.title || "Untitled Event"}</strong>
+                  <div style={{ display: "flex", gap: "8px" }}>
+                     <span style={{ fontSize: "0.75rem", color: "#3b82f6", background: "rgba(59, 130, 246, 0.2)", padding: "2px 8px", borderRadius: "100px" }}>PENDING</span>
+                  </div>
+                </div>
+                <p style={{ color: "rgba(255,255,255,0.6)", fontSize: "0.875rem", marginBottom: "0.75rem" }}>{ev.description || "No description provided."}</p>
+                <div style={{ display: "flex", gap: "1rem", fontSize: "0.75rem", color: "rgba(255,255,255,0.4)" }}>
                   <span style={{ display: "flex", alignItems: "center", gap: "4px" }}><Clock size={12} /> {ev.created_at ? new Date(ev.created_at).toLocaleTimeString() : "Just now"}</span>
                 </div>
               </li>
