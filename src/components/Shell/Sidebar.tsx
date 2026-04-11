@@ -81,7 +81,7 @@ export default function Sidebar() {
 
       <nav className={styles.nav}>
         {navItems.map((item) => {
-          if ((item.name === "Resources" || item.name === "Chat") && user?.role === "STUDENT") return null;
+          if (item.name === "Chat" && user?.role === "STUDENT") return null;
           
           const Icon = item.icon;
           const href = (item.name === "Dashboard" && user?.role) 
