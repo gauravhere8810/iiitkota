@@ -3,7 +3,7 @@
 import React, { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
-import { ShieldCheck, Users, Crown, ArrowRight } from "lucide-react";
+import { ShieldCheck, Users, Crown, ArrowRight, Loader2 } from "lucide-react";
 import styles from "./Home.module.css";
 import { clsx } from "clsx";
 
@@ -38,23 +38,14 @@ export default function Home() {
   const [overrideWait, setOverrideWait] = React.useState(false);
 
   React.useEffect(() => {
+    // Maximum wait time of 1.5s for auth context to initialize
     const forceLoad = setTimeout(() => {
-      console.warn("Forcing UI override over Auth Context freeze");
       setOverrideWait(true);
-    }, 1000);
+    }, 1500);
     return () => clearTimeout(forceLoad);
   }, []);
 
-  if (isLoading && !overrideWait) {
-    return (
-      <div className={styles.container}>
-        <div className="glass" style={{ padding: "2rem", borderRadius: "20px" }}>
-          Initializing Ecosystem Data...
-        </div>
-      </div>
-    );
-  }
-
+  // Render immediately; auth data will fill in when ready.
   return (
     <div className={styles.container}>
       <div className={styles.greenCloud}></div>
@@ -62,15 +53,23 @@ export default function Home() {
         <span className={styles.tagline}>The College OS</span>
         <h1>Welcome to Modular Commons</h1>
         <p>A unified digital ecosystem for campus hierarchy, collaboration, and resource transparency.</p>
-        <div style={{ marginTop: '2rem' }}>
-          <button 
-            className="glass" 
-            style={{ padding: '1rem 2.5rem', borderRadius: '12px', fontSize: '1.25rem', color: 'var(--primary)', cursor: 'pointer', border: '1px solid var(--primary)', background: 'transparent' }} 
-            onClick={() => router.push('/login')}
-          >
-            Access Role Login Simulator <ArrowRight size={20} style={{ display: 'inline', marginLeft: '8px' }} />
-          </button>
-        </div>
+        
+        {isLoading && !overrideWait ? (
+           <div className="glass" style={{ marginTop: '2rem', padding: '1rem', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '0.75rem', maxWidth: '300px', margin: '2rem auto 0' }}>
+             <Loader2 className="spin" size={16} />
+             <span style={{ fontSize: '0.9rem' }}>Initializing identity...</span>
+           </div>
+        ) : (
+          <div style={{ marginTop: '2rem' }}>
+            <button 
+              className="glass" 
+              style={{ padding: '1rem 2.5rem', borderRadius: '12px', fontSize: '1.25rem', color: 'var(--primary)', cursor: 'pointer', border: '1px solid var(--primary)', background: 'transparent' }} 
+              onClick={() => router.push('/login')}
+            >
+              Access Role Login Simulator <ArrowRight size={20} style={{ display: 'inline', marginLeft: '8px' }} />
+            </button>
+          </div>
+        )}
       </header>
     </div>
   );
