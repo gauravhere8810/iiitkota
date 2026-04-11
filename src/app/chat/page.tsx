@@ -122,7 +122,7 @@ export default function ChatPage() {
     if (!file || !user) return;
 
     // Send file name as message via Supabase
-    sendMessage(user.id, user.name, `📎 Shared file: ${file.name}`);
+    sendToCloud(user.id, user.name, `📎 Shared file: ${file.name}`, channel);
     setInputText("");
     
     if (fileInputRef.current) {
