@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import styles from "./Resources.module.css";
 import { clsx } from "clsx";
+import { supabase } from "@/lib/supabase";
 
 interface Resource {
   id: string;
@@ -122,6 +123,24 @@ export default function ResourcesPage() {
         })
       });
       if (res.ok) {
+        const data = await res.json();
+        
+        // Use a guaranteed physical INSERT into chat_messages to trigger Realtime on all devices flawlessly
+        await supabase.from("chat_messages").insert([
+          {
+            sender_id: user.id,
+            sender_name: "SYSTEM",
+            channel: "RESOURCE_ALERTS",
+            content: JSON.stringify({
+              id: data.request.id,
+              requesterName: user.name,
+              resourceName: selectedResource.name,
+              reason: requestReason,
+              clubId: activeClubId
+            })
+          }
+        ]);
+
         setRequestSuccess(true);
         setTimeout(() => {
           setSelectedResource(null);

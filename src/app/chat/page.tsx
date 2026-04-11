@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useChat } from "@/hooks/useChat";
 import { 
@@ -42,11 +42,11 @@ export default function ChatPage() {
   const [showSummaryModal, setShowSummaryModal] = useState(false);
   const [summaryHours, setSummaryHours] = useState(24);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  
+  // Real-time Cloud Hook (Supabase primary)
+  const { messages: cloudMessages, sendMessage: sendToCloud, isConnecting, setMessages } = useChat(channel, activeClubId || undefined);
 
-  // Real-time Cloud Hook
-  const { messages: cloudMessages, sendMessage: sendToCloud, isConnecting, setMessages } = useChat();
-
-  const messagesEndRef = React.useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -54,13 +54,12 @@ export default function ChatPage() {
 
   useEffect(() => {
     scrollToBottom();
-  }, [cloudMessages]);
+  }, [cloudMessages.length]);
 
   const activeClub = user?.clubs.find(c => c.id === activeClubId);
   const isTopRole = activeClub?.role === "SAC_HEAD" || activeClub?.role === "SAC_MEMBER" || activeClub?.role === "CLUB_HEAD";
 
   useEffect(() => {
-    // Core members cannot see FORMAL, but can see INFORMAL
     if (!isTopRole && channel === "FORMAL") {
       setChannel("INFORMAL");
     }
@@ -120,23 +119,12 @@ export default function ChatPage() {
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file || !user) return;
 
-    const fileUrl = URL.createObjectURL(file);
-    const newMessage: Message = {
-      id: Date.now().toString(),
-      sender: user?.name || "Unknown",
-      content: inputText || "Sent a file",
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      fileUrl,
-      fileType: file.type,
-      fileName: file.name
-    };
-    
-    setMessages([...messages, newMessage]);
+    // Send file name as message via Supabase
+    sendMessage(user.id, user.name, `📎 Shared file: ${file.name}`);
     setInputText("");
     
-    // Reset input
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }

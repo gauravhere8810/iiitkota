@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 
 export interface ChatMessage {
@@ -12,20 +12,38 @@ export interface ChatMessage {
   channel: string;
 }
 
-export function useChat() {
+export function useChat(channel?: string, clubId?: string) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isConnecting, setIsConnecting] = useState(true);
 
   // Fetch initial messages
   useEffect(() => {
     const fetchMessages = async () => {
-      const { data } = await supabase
+      setIsConnecting(true);
+      let query = supabase
         .from("chat_messages")
         .select("*")
         .order("created_at", { ascending: true })
         .limit(50);
       
-      if (data) setMessages(data as ChatMessage[]);
+      // Filter by channel if provided
+      if (channel) {
+        query = query.eq("channel", channel);
+      }
+
+      const { data, error } = await query;
+      
+      if (error && error.code === "42703") {
+        // Column doesn't exist yet — fetch all without filter as fallback
+        const { data: allData } = await supabase
+          .from("chat_messages")
+          .select("*")
+          .order("created_at", { ascending: true })
+          .limit(50);
+        if (allData) setMessages(allData as ChatMessage[]);
+      } else if (data) {
+        setMessages(data as ChatMessage[]);
+      }
       setIsConnecting(false);
     };
 
@@ -34,7 +52,7 @@ export function useChat() {
     // Subscribe to new messages being inserted remotely
     // Create a unique channel for this specific session to avoid collisions
     const subscription = supabase
-      .channel(`chat-listener-${Math.random().toString(36).substring(7)}`)
+      .channel(`chat-listener-${channel || "all"}-${Math.random().toString(36).substring(7)}`)
       .on(
         "postgres_changes",
         {
@@ -43,12 +61,16 @@ export function useChat() {
           table: "chat_messages",
         },
         (payload) => {
-          console.log("Cloud message received:", payload.new);
-          setMessages((current) => {
-            // Check for duplicates to prevent double-rendering during optimistic loads
-            if (current.some(m => m.id === payload.new.id)) return current;
-            return [...current, payload.new as ChatMessage];
-          });
+          const newMsg = payload.new as ChatMessage;
+          // Filter logic locally for broad subscriptions
+          if (!channel || newMsg.channel === channel) {
+            console.log("Cloud message received:", newMsg);
+            setMessages((current) => {
+              // Check for duplicates to prevent double-rendering during optimistic loads
+              if (current.some(m => m.id === newMsg.id)) return current;
+              return [...current, newMsg];
+            });
+          }
         }
       )
       .subscribe((status) => {
@@ -58,13 +80,15 @@ export function useChat() {
     return () => {
       supabase.removeChannel(subscription);
     };
-  }, []);
+  }, [channel, clubId]);
 
-  const sendMessage = async (sender_id: string, senderName: string, content: string, channel: string = "INFORMAL") => {
+  const sendMessage = async (sender_id: string, senderName: string, content: string, msgChannel: string = "INFORMAL") => {
+    const targetChannel = channel || msgChannel;
+    
     try {
       // 1. Primary: Cloud Sync (Supabase)
       const { error } = await supabase.from("chat_messages").insert([
-        { sender_id, sender_name: senderName, content, channel }
+        { sender_id, sender_name: senderName, content, channel: targetChannel }
       ]);
       
       if (error) {
@@ -80,8 +104,8 @@ export function useChat() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             content,
-            channel: "hq-room",
-            clubId: "club-1",
+            channel: targetChannel,
+            clubId: clubId || "club-1",
             userId: sender_id,
             userName: senderName
           })
