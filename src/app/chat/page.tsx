@@ -285,6 +285,12 @@ export default function ChatPage() {
                   </div>
                 ) : (
                   <div className={styles.aiText}>
+                    {summary?.startsWith("📋 [Fallback Summary]") && (
+                      <div className={styles.fallbackWarning}>
+                        <Sparkles size={14} />
+                        <span>AI Service at limit. Showing Smart Local Summary.</span>
+                      </div>
+                    )}
                     {summary?.split('\n').map((line, i) => (
                       <p key={i}>{line}</p>
                     ))}
