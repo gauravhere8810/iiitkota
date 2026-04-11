@@ -198,7 +198,8 @@ export default function RoleDashboard({ params }: PageProps) {
                                 venue: "Cloud Room",
                                 startTime: new Date().toISOString(),
                                 endTime: new Date().toISOString(),
-                                clubId: "collaboration-hub"
+                                clubId: "collaboration-hub",
+                                status: "PENDING"
                               }
                             ]);
                             if (!error) {
@@ -228,7 +229,83 @@ export default function RoleDashboard({ params }: PageProps) {
             </div>
           </div>
         )}
-        {roleEnum === "CLUB_HEAD" && <ClubHeadEventsFeed />}
+        {roleEnum === "CLUB_HEAD" ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: "2rem", gridColumn: "1 / -1" }}>
+            <ClubHeadEventsFeed />
+          </div>
+        ) : (
+          <UserEventProposals currentUserName={user?.name} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function UserEventProposals({ currentUserName }: { currentUserName?: string }) {
+  const [proposals, setProposals] = React.useState<any[]>([]);
+
+  React.useEffect(() => {
+    const fetchProposals = async () => {
+      const { data } = await supabase
+        .from("events")
+        .select("*")
+        .eq("created_by_name", currentUserName)
+        .order("created_at", { ascending: false });
+      if (data) setProposals(data);
+    };
+    fetchProposals();
+
+    const channel = supabase
+      .channel("user-proposals-channel")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "events" },
+        (payload: any) => {
+          if (payload.new.created_by_name === currentUserName) {
+            if (payload.eventType === "INSERT") {
+              setProposals((curr) => [payload.new, ...curr]);
+            } else if (payload.eventType === "UPDATE") {
+              setProposals((curr) => curr.map(p => p.id === payload.new.id ? payload.new : p));
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [currentUserName]);
+
+  if (proposals.length === 0) return null;
+
+  return (
+    <div className={clsx(styles.card, "glass")} style={{ gridColumn: "1 / -1" }}>
+      <div className={styles.cardHeader}>
+        <Clock size={20} />
+        <h3>My Event Proposals</h3>
+      </div>
+      <div className={styles.content}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", marginTop: "1rem" }}>
+          {proposals.map((p) => (
+            <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "1rem", background: "rgba(255,255,255,0.03)", borderRadius: "12px", border: "1px solid rgba(255,255,255,0.1)" }}>
+              <div>
+                <strong style={{ display: "block", color: "white" }}>{p.title}</strong>
+                <span style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.5)" }}>{new Date(p.created_at).toLocaleDateString()}</span>
+              </div>
+              <div style={{ 
+                padding: "4px 12px", 
+                borderRadius: "100px", 
+                fontSize: "0.75rem", 
+                fontWeight: "600",
+                background: p.status === "APPROVED" ? "rgba(16, 185, 129, 0.2)" : p.status === "REJECTED" ? "rgba(239, 68, 68, 0.2)" : "rgba(245, 158, 11, 0.2)",
+                color: p.status === "APPROVED" ? "#10b981" : p.status === "REJECTED" ? "#ef4444" : "#f59e0b"
+              }}>
+                {p.status || "PENDING"}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -236,11 +313,12 @@ export default function RoleDashboard({ params }: PageProps) {
 
 function ClubHeadEventsFeed() {
   const [events, setEvents] = React.useState<any[]>([]);
+  const [isProcessing, setIsProcessing] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     const fetchEvents = async () => {
       try {
-        const { data } = await supabase.from("events").select("*").order("created_at", { ascending: false }).limit(10);
+        const { data } = await supabase.from("events").select("*").order("created_at", { ascending: false });
         if (data) setEvents(data);
       } catch (e) {}
     };
@@ -250,9 +328,13 @@ function ClubHeadEventsFeed() {
       .channel("events-feed-channel")
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "events" },
+        { event: "*", schema: "public", table: "events" },
         (payload: any) => {
-          setEvents((curr) => [payload.new, ...curr]);
+          if (payload.eventType === "INSERT") {
+            setEvents((curr) => [payload.new, ...curr]);
+          } else if (payload.eventType === "UPDATE") {
+            setEvents((curr) => curr.map(ev => ev.id === payload.new.id ? payload.new : ev));
+          }
         }
       )
       .subscribe();
@@ -262,37 +344,103 @@ function ClubHeadEventsFeed() {
     };
   }, []);
 
+  const handleStatusUpdate = async (id: string, status: string) => {
+    setIsProcessing(id);
+    try {
+      const { error } = await supabase
+        .from("events")
+        .update({ status })
+        .eq("id", id);
+      
+      if (error) {
+        throw new Error(error.message || "Update failed");
+      }
+      
+      console.log("Update successful via Supabase!");
+    } catch (err: any) {
+      console.error("Critical Update Failure:", err.message || err);
+    } finally {
+      setIsProcessing(null);
+    }
+  };
+
+  const pending = events.filter(e => !e.status || e.status === "PENDING");
+  const history = events.filter(e => e.status === "APPROVED" || e.status === "REJECTED");
+
   return (
-    <div className={clsx(styles.card, "glass")} style={{ gridColumn: "1 / -1", border: "1px solid rgba(59, 130, 246, 0.3)" }}>
-      <div className={styles.cardHeader} style={{ backgroundColor: "rgba(59, 130, 246, 0.1)" }}>
-        <Activity size={20} color="#3b82f6" />
-        <h3 style={{ color: "#3b82f6" }}>Live Member Event Submissions</h3>
-      </div>
-      <div className={styles.content}>
-        {events.length === 0 ? (
-          <p className={styles.empty}>Waiting for core members to submit new events...</p>
-        ) : (
-          <ul className={styles.taskList} style={{ display: "flex", flexDirection: "column", gap: "1rem", marginTop: "1rem" }}>
-            {events.map((ev, i) => (
-              <li key={ev.id || i} style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", padding: "1rem", background: "rgba(255,255,255,0.05)", borderRadius: "12px", border: "1px solid rgba(255,255,255,0.1)" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", width: "100%", marginBottom: "0.25rem" }}>
-                  <strong style={{ fontSize: "1.1rem", color: "white" }}>{ev.title || "Untitled Event"}</strong>
-                  <div style={{ display: "flex", gap: "8px" }}>
-                     <span style={{ fontSize: "0.75rem", color: "#10b981", background: "rgba(16, 185, 129, 0.2)", padding: "2px 8px", borderRadius: "100px" }}>NEW</span>
-                     <button style={{ background: "rgba(59,130,246,0.2)", border: "none", borderRadius: "4px", color: "#3b82f6", cursor: "pointer", padding: "2px 6px" }}><Check size={12} /></button>
-                     <button style={{ background: "rgba(239,68,68,0.2)", border: "none", borderRadius: "4px", color: "#ef4444", cursor: "pointer", padding: "2px 6px" }}><X size={12} /></button>
+    <>
+      <div className={clsx(styles.card, "glass")} style={{ border: "1px solid rgba(59, 130, 246, 0.3)" }}>
+        <div className={styles.cardHeader} style={{ backgroundColor: "rgba(59, 130, 246, 0.1)" }}>
+          <Activity size={20} color="#3b82f6" />
+          <h3 style={{ color: "#3b82f6" }}>Pending Event Proposals</h3>
+        </div>
+        <div className={styles.content}>
+          {pending.length === 0 ? (
+            <p className={styles.empty}>No pending proposals at the moment.</p>
+          ) : (
+            <ul className={styles.taskList} style={{ display: "flex", flexDirection: "column", gap: "1rem", marginTop: "1rem" }}>
+              {pending.map((ev) => (
+                <li key={ev.id} style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", padding: "1rem", background: "rgba(255,255,255,0.05)", borderRadius: "12px", border: "1px solid rgba(255,255,255,0.1)" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", width: "100%", marginBottom: "0.25rem" }}>
+                    <strong style={{ fontSize: "1.1rem", color: "white" }}>{ev.title}</strong>
+                    <div style={{ display: "flex", gap: "8px" }}>
+                       <button 
+                         disabled={!!isProcessing}
+                         onClick={() => handleStatusUpdate(ev.id, "APPROVED")}
+                         style={{ background: "rgba(16,185,129,0.2)", border: "none", borderRadius: "4px", color: "#10b981", cursor: "pointer", padding: "4px 8px", display: "flex", alignItems: "center", gap: "4px" }}
+                       >
+                         {isProcessing === ev.id ? <Loader2 size={12} className="spin" /> : <Check size={12} />} Accept
+                       </button>
+                       <button 
+                         disabled={!!isProcessing}
+                         onClick={() => handleStatusUpdate(ev.id, "REJECTED")}
+                         style={{ background: "rgba(239,68,68,0.2)", border: "none", borderRadius: "4px", color: "#ef4444", cursor: "pointer", padding: "4px 8px", display: "flex", alignItems: "center", gap: "4px" }}
+                       >
+                         {isProcessing === ev.id ? <Loader2 size={12} className="spin" /> : <X size={12} />} Reject
+                       </button>
+                    </div>
                   </div>
-                </div>
-                <p style={{ color: "rgba(255,255,255,0.6)", fontSize: "0.875rem", marginBottom: "0.75rem" }}>{ev.description || "No description provided."}</p>
-                <div style={{ display: "flex", gap: "1rem", fontSize: "0.75rem", color: "rgba(255,255,255,0.4)" }}>
-                  <span style={{ display: "flex", alignItems: "center", gap: "4px" }}><User size={12} /> {ev.created_by_name || "Club Member"}</span>
-                  <span style={{ display: "flex", alignItems: "center", gap: "4px" }}><Clock size={12} /> {ev.created_at ? new Date(ev.created_at).toLocaleTimeString() : "Just now"}</span>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
+                  <p style={{ color: "rgba(255,255,255,0.6)", fontSize: "0.875rem", marginBottom: "0.75rem" }}>{ev.description}</p>
+                  <div style={{ display: "flex", gap: "1rem", fontSize: "0.75rem", color: "rgba(255,255,255,0.4)" }}>
+                    <span style={{ display: "flex", alignItems: "center", gap: "4px" }}><User size={12} /> {ev.created_by_name}</span>
+                    <span style={{ display: "flex", alignItems: "center", gap: "4px" }}><Clock size={12} /> {new Date(ev.created_at).toLocaleTimeString()}</span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </div>
-    </div>
+
+      <div className={clsx(styles.card, "glass")}>
+        <div className={styles.cardHeader}>
+          <Clock size={20} />
+          <h3>Proposal History</h3>
+        </div>
+        <div className={styles.content}>
+          {history.length === 0 ? (
+            <p className={styles.empty}>No history yet.</p>
+          ) : (
+            <ul className={styles.taskList} style={{ display: "flex", flexDirection: "column", gap: "0.75rem", marginTop: "1rem" }}>
+              {history.map((ev) => (
+                <li key={ev.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.75rem 1rem", background: "rgba(255,255,255,0.02)", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.05)" }}>
+                  <div>
+                    <span style={{ color: "white", fontSize: "0.9rem" }}>{ev.title}</span>
+                    <span style={{ display: "block", fontSize: "0.7rem", color: "rgba(255,255,255,0.4)" }}>By {ev.created_by_name} • {new Date(ev.created_at).toLocaleDateString()}</span>
+                  </div>
+                  <div style={{ 
+                    fontSize: "0.7rem", 
+                    fontWeight: "600",
+                    color: ev.status === "APPROVED" ? "#10b981" : "#ef4444"
+                  }}>
+                    {ev.status}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+    </>
   );
 }

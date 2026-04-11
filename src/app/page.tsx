@@ -1,59 +1,14 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
-import { ShieldCheck, Users, Crown, ArrowRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import styles from "./Home.module.css";
-import { clsx } from "clsx";
-
-const PROXY_ROLES = [
-  {
-    title: "Faculty Coordinator",
-    email: "faculty@uni.edu",
-    description: "Administrative oversight and policy guidance for all student organizations.",
-    icon: ShieldCheck,
-    color: "#3b82f6"
-  },
-  {
-    title: "Club Head",
-    email: "coding.head@uni.edu",
-    description: "Lead your team, manage resources, and broadcast official announcements.",
-    icon: Crown,
-    color: "#8b5cf6"
-  },
-  {
-    title: "General Student",
-    email: "student@uni.edu",
-    description: "Participate in discussions, book resources, and join community events.",
-    icon: Users,
-    color: "#10b981"
-  }
-];
 
 export default function Home() {
-  const { user, isLoading } = useAuth();
+  const { isLoading } = useAuth();
   const router = useRouter();
-
-  const [overrideWait, setOverrideWait] = React.useState(false);
-
-  React.useEffect(() => {
-    const forceLoad = setTimeout(() => {
-      console.warn("Forcing UI override over Auth Context freeze");
-      setOverrideWait(true);
-    }, 1000);
-    return () => clearTimeout(forceLoad);
-  }, []);
-
-  if (isLoading && !overrideWait) {
-    return (
-      <div className={styles.container}>
-        <div className="glass" style={{ padding: "2rem", borderRadius: "20px" }}>
-          Initializing Ecosystem Data...
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className={styles.container}>
@@ -62,6 +17,7 @@ export default function Home() {
         <span className={styles.tagline}>The College OS</span>
         <h1>Welcome to Modular Commons</h1>
         <p>A unified digital ecosystem for campus hierarchy, collaboration, and resource transparency.</p>
+        
         <div style={{ marginTop: '2rem' }}>
           <button 
             className="glass" 
