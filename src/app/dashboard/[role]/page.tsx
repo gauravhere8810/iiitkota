@@ -195,10 +195,7 @@ export default function RoleDashboard({ params }: PageProps) {
                                 title: eventTitle,
                                 description: eventDesc,
                                 created_by_name: user?.name,
-                                venue: "Cloud Room",
-                                startTime: new Date().toISOString(),
-                                endTime: new Date().toISOString(),
-                                clubId: "collaboration-hub"
+                                role_origin: roleEnum
                               }
                             ]);
                             if (!error) {
@@ -209,9 +206,12 @@ export default function RoleDashboard({ params }: PageProps) {
                                 setEventTitle("");
                                 setEventDesc("");
                               }, 2000);
+                            } else {
+                              alert("DB Error: " + error.message);
                             }
-                          } catch (e) {
+                          } catch (e: any) {
                             console.error(e);
+                            alert("Catch Error: " + (e.message || String(e)));
                           } finally {
                             setIsSubmitting(false);
                           }
