@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import { supabase } from "@/lib/supabase";
 import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
@@ -8,40 +8,33 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { clubId, channel, hours } = await request.json();
-    let finalClubId = clubId;
-
-    if (!finalClubId || !channel) {
-      return NextResponse.json({ error: "Missing parameters" }, { status: 400 });
-    }
-
-    // Handle mock club ID
-    if (finalClubId === "club-1") {
-      const defaultClub = await prisma.club.findFirst();
-      if (defaultClub) finalClubId = defaultClub.id;
-    }
+    const { hours, channel = "INFORMAL" } = await request.json();
 
     // Calculate time threshold
     const timeThreshold = new Date();
     timeThreshold.setHours(timeThreshold.getHours() - (hours || 24));
 
-    // Fetch messages
-    const messages = await prisma.chatMessage.findMany({
-      where: {
-        clubId: finalClubId,
-        channel: channel,
-        createdAt: { gte: timeThreshold }
-      },
-      include: { user: true },
-      orderBy: { createdAt: "asc" }
-    });
+    // Fetch messages from Shared Supabase Cloud
+    let query = supabase
+      .from("chat_messages")
+      .select("*")
+      .eq("channel", channel)
+      .gte("created_at", timeThreshold.toISOString())
+      .order("created_at", { ascending: true });
+    
+    const { data: messages, error: sbError } = await query;
+
+    if (sbError || !messages) {
+      console.error("Supabase fetch error for AI:", sbError);
+      return NextResponse.json({ error: "Failed to retrieve coordination logs" }, { status: 500 });
+    }
 
     if (messages.length === 0) {
-      return NextResponse.json({ summary: "No messages found in the selected timeframe to summarize." });
+      return NextResponse.json({ summary: "No recent coordination logs found to summarize." });
     }
 
     // Prepare text for AI
-    const chatTranscript = messages.map(m => `[${m.createdAt.toISOString()}] ${m.user.name}: ${m.content}`).join("\n");
+    const chatTranscript = messages.map(m => `[${m.created_at}] ${m.sender_name}: ${m.content}`).join("\n");
 
     // Call xAI Grok
     console.log(`Requesting summary from xAI with ${messages.length} messages using grok-2...`);

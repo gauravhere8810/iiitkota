@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { useChat } from "@/hooks/useChat";
 import { 
   Send, 
   Megaphone, 
@@ -35,13 +36,25 @@ interface Message {
 export default function ChatPage() {
   const { user, activeClubId } = useAuth();
   const [channel, setChannel] = useState<"INFORMAL" | "FORMAL">("INFORMAL");
-  const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState("");
   const [isSummarizing, setIsSummarizing] = useState(false);
   const [summary, setSummary] = useState<string | null>(null);
   const [showSummaryModal, setShowSummaryModal] = useState(false);
   const [summaryHours, setSummaryHours] = useState(24);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  // Real-time Cloud Hook
+  const { messages: cloudMessages, sendMessage: sendToCloud, isConnecting, setMessages } = useChat();
+
+  const messagesEndRef = React.useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [cloudMessages]);
 
   const activeClub = user?.clubs.find(c => c.id === activeClubId);
   const isTopRole = activeClub?.role === "SAC_HEAD" || activeClub?.role === "SAC_MEMBER" || activeClub?.role === "CLUB_HEAD";
@@ -53,65 +66,30 @@ export default function ChatPage() {
     }
   }, [isTopRole, channel]);
 
-  // Fetch history from database
-  useEffect(() => {
-    if (activeClubId) {
-      fetch(`/api/chat?clubId=${activeClubId}&channel=${channel}`)
-        .then(res => res.json())
-        .then(data => {
-          if (data.messages) {
-            setMessages(data.messages);
-          } else {
-            // Fallback to mock if API fails or is empty for demo feel
-            const mockMessages = channel === "INFORMAL" ? [
-              { id: "1", sender: "Charlie Dev", content: "Hey anyone up for a late night coding session?", timestamp: "10:30 PM" },
-              { id: "2", sender: "Eve Coder", content: "I'm down! In the lab?", timestamp: "10:32 PM" },
-              { id: "3", sender: "Charlie Dev", content: "Yep, see ya there.", timestamp: "10:35 PM" },
-            ] : [
-              { id: "201", sender: "Dr. Alice Smith", content: "Let's review the finalized budget for the tech symposium.", timestamp: "11:00 AM" },
-              { id: "202", sender: "Admin Bob", content: "Agreed. I will upload the Excel spec sheet soon.", timestamp: "11:15 AM" },
-            ];
-            setMessages(mockMessages);
-          }
-        });
-    }
-  }, [activeClubId, channel]);
-
   const handleSend = async () => {
     if (!inputText.trim() || !activeClubId || !user) return;
     
-    const tempId = Date.now().toString();
-    const newMessage = {
-      id: tempId,
-      sender: user.name,
-      content: inputText,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    };
-    
-    // Optimistic update
-    setMessages([...messages, newMessage]);
+    const content = inputText.trim();
     setInputText("");
 
+    // 1. Optimistic UI update (Instant local feedback)
+    const optimisticMessage = {
+      id: `temp-${Date.now()}`,
+      created_at: new Date().toISOString(),
+      sender_id: user.id,
+      sender_name: user.name,
+      content: content,
+      channel: channel
+    };
+    
+    // We update the hook's state directly for instant feedback
+    setMessages(prev => [...prev, optimisticMessage]);
+
+    // 2. Background Cloud Broadcast
     try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          content: inputText,
-          channel: channel,
-          clubId: activeClubId,
-          userId: user.id,
-          userName: user.name,
-          userEmail: user.email
-        })
-      });
-      const data = await res.json();
-      if (data.message) {
-        // Replace temp message with real one from DB
-        setMessages(prev => prev.map(m => m.id === tempId ? data.message : m));
-      }
-    } catch (error) {
-      console.error("Failed to save message:", error);
+      await sendToCloud(user.id, user.name, content, channel);
+    } catch (e) {
+      console.error("Cloud broadcast failed, message will persist only locally for now.");
     }
   };
 
@@ -205,30 +183,28 @@ export default function ChatPage() {
             <span>{channel === "INFORMAL" ? "Casual brainstorming and discussion" : "Leadership group chat"}</span>
           </div>
           <div className={styles.headerActions}>
-            {channel === "FORMAL" && (
-              <button 
-                className={styles.summarizeBtn} 
-                onClick={handleSummarize}
-                title="AI Summary"
-              >
-                <Sparkles size={18} />
-                <span>AI Summary</span>
-              </button>
-            )}
+            <button 
+              className={styles.summarizeBtn} 
+              onClick={handleSummarize}
+              title="AI Summary"
+            >
+              <Sparkles size={18} />
+              <span>AI Briefing</span>
+            </button>
             <Search size={18} />
             <MoreVertical size={18} />
           </div>
         </header>
 
         <div className={styles.messageList}>
-          {messages.map((msg) => (
-            <div key={msg.id} className={clsx(styles.messageItem, msg.isOfficial && styles.officialMessage)}>
-              <div className={styles.messageAvatar}>{msg.sender.charAt(0)}</div>
+          {cloudMessages.filter(m => m.channel === channel).map((msg) => (
+            <div key={msg.id} className={clsx(styles.messageItem, msg.channel === "FORMAL" && styles.officialMessage)}>
+              <div className={styles.messageAvatar}>{msg.sender_name.charAt(0)}</div>
               <div className={styles.messageContent}>
                 <div className={styles.messageMeta}>
-                  <span className={styles.messageSender}>{msg.sender}</span>
-                  <span className={styles.messageTime}>{msg.timestamp}</span>
-                  {msg.isOfficial && <span className={styles.officialBadge}>OFFICIAL</span>}
+                  <span className={styles.messageSender}>{msg.sender_name}</span>
+                  <span className={styles.messageTime}>{new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                  {msg.channel === "FORMAL" && <span className={styles.officialBadge}>FORMAL</span>}
                 </div>
                 <div className={styles.messageText}>{msg.content}</div>
                 {msg.fileUrl && (
@@ -250,6 +226,7 @@ export default function ChatPage() {
               </div>
             </div>
           ))}
+          <div ref={messagesEndRef} />
         </div>
 
         <div className={styles.inputArea}>

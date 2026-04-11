@@ -9,6 +9,7 @@ export interface ChatMessage {
   sender_id: string;
   sender_name: string;
   content: string;
+  channel: string;
 }
 
 export function useChat() {
@@ -31,8 +32,9 @@ export function useChat() {
     fetchMessages();
 
     // Subscribe to new messages being inserted remotely
-    const channel = supabase
-      .channel("hq-room")
+    // Create a unique channel for this specific session to avoid collisions
+    const subscription = supabase
+      .channel(`chat-listener-${Math.random().toString(36).substring(7)}`)
       .on(
         "postgres_changes",
         {
@@ -41,22 +43,54 @@ export function useChat() {
           table: "chat_messages",
         },
         (payload) => {
-          setMessages((current) => [...current, payload.new as ChatMessage]);
+          console.log("Cloud message received:", payload.new);
+          setMessages((current) => {
+            // Check for duplicates to prevent double-rendering during optimistic loads
+            if (current.some(m => m.id === payload.new.id)) return current;
+            return [...current, payload.new as ChatMessage];
+          });
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log("Supabase Realtime Status:", status);
+      });
 
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(subscription);
     };
   }, []);
 
-  const sendMessage = async (sender_id: string, sender_name: string, content: string) => {
-    const { error } = await supabase.from("chat_messages").insert([
-      { sender_id, sender_name, content }
-    ]);
-    if (error) console.error("Error sending message:", error);
+  const sendMessage = async (sender_id: string, senderName: string, content: string, channel: string = "INFORMAL") => {
+    try {
+      // 1. Primary: Cloud Sync (Supabase)
+      const { error } = await supabase.from("chat_messages").insert([
+        { sender_id, sender_name: senderName, content, channel }
+      ]);
+      
+      if (error) {
+        throw new Error(error.message);
+      }
+    } catch (e) {
+      console.warn("Cloud sync unavailable, falling back to local Prisma storage.", e);
+      
+      // 2. Secondary: Local Storage (Prisma API from Main branch)
+      try {
+        await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            content,
+            channel: "hq-room",
+            clubId: "club-1",
+            userId: sender_id,
+            userName: senderName
+          })
+        });
+      } catch (localErr) {
+        console.error("Critical failure: Both Cloud and Local storage failed.", localErr);
+      }
+    }
   };
 
-  return { messages, sendMessage, isConnecting };
+  return { messages, sendMessage, isConnecting, setMessages };
 }
