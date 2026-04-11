@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import { supabase } from "@/lib/supabase";
 import { NextResponse } from "next/server";
 
 function localSummarize(messages: Array<{ user: { name: string }; content: string; createdAt: Date }>, channel: string): string {
@@ -63,36 +63,38 @@ export async function POST(request: Request) {
   const apiKey = process.env.XAI_API_KEY;
 
   try {
-    const { clubId, channel, hours } = await request.json();
+    const { clubId, channel = "INFORMAL", hours = 24 } = await request.json();
     let finalClubId = clubId;
 
-    if (!finalClubId || !channel) {
-      return NextResponse.json({ error: "Missing parameters" }, { status: 400 });
-    }
-
-    if (finalClubId === "club-1") {
+    if (finalClubId === "club-1" || !finalClubId) {
       const defaultClub = await prisma.club.findFirst();
       if (defaultClub) finalClubId = defaultClub.id;
     }
 
     const timeThreshold = new Date();
-    timeThreshold.setHours(timeThreshold.getHours() - (hours || 24));
+    timeThreshold.setHours(timeThreshold.getHours() - hours);
 
-    const messages = await prisma.chatMessage.findMany({
-      where: {
-        clubId: finalClubId,
-        channel: channel,
-        createdAt: { gte: timeThreshold }
-      },
-      include: { user: true },
-      orderBy: { createdAt: "asc" }
-    });
+    // Fetch messages from Shared Supabase Cloud for real-time consistency
+    let query = supabase
+      .from("chat_messages")
+      .select("*")
+      .eq("channel", channel)
+      .gte("created_at", timeThreshold.toISOString())
+      .order("created_at", { ascending: true });
+    
+    const { data: messages, error: sbError } = await query;
 
-    if (messages.length === 0) {
-      return NextResponse.json({ summary: "No messages found in the selected timeframe." });
+    if (sbError || !messages) {
+      console.error("Supabase fetch error for AI:", sbError);
+      return NextResponse.json({ error: "Failed to retrieve coordination logs" }, { status: 500 });
     }
 
-    const chatTranscript = messages.map(m => `${m.user.name}: ${m.content}`).join("\n");
+    if (messages.length === 0) {
+      return NextResponse.json({ summary: "No recent coordination logs found to summarize." });
+    }
+
+    // Prepare text for AI
+    const chatTranscript = messages.map(m => `[${m.created_at}] ${m.sender_name}: ${m.content}`).join("\n");
 
     // Try xAI first
     let summary = "";

@@ -9,13 +9,14 @@ export interface ChatMessage {
   sender_id: string;
   sender_name: string;
   content: string;
-  channel?: string;
+  channel: string;
 }
 
 export function useChat(channel?: string, clubId?: string) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isConnecting, setIsConnecting] = useState(true);
 
+  // Fetch initial messages
   useEffect(() => {
     const fetchMessages = async () => {
       setIsConnecting(true);
@@ -25,7 +26,7 @@ export function useChat(channel?: string, clubId?: string) {
         .order("created_at", { ascending: true })
         .limit(50);
       
-      // Filter by channel if column exists
+      // Filter by channel if provided
       if (channel) {
         query = query.eq("channel", channel);
       }
@@ -33,7 +34,7 @@ export function useChat(channel?: string, clubId?: string) {
       const { data, error } = await query;
       
       if (error && error.code === "42703") {
-        // Column doesn't exist yet — fetch all without filter
+        // Column doesn't exist yet — fetch all without filter as fallback
         const { data: allData } = await supabase
           .from("chat_messages")
           .select("*")
@@ -48,9 +49,10 @@ export function useChat(channel?: string, clubId?: string) {
 
     fetchMessages();
 
-    // Subscribe to new messages in real-time
-    const sub = supabase
-      .channel(`chat-${channel || "all"}`)
+    // Subscribe to new messages being inserted remotely
+    // Create a unique channel for this specific session to avoid collisions
+    const subscription = supabase
+      .channel(`chat-listener-${channel || "all"}-${Math.random().toString(36).substring(7)}`)
       .on(
         "postgres_changes",
         {
@@ -60,29 +62,59 @@ export function useChat(channel?: string, clubId?: string) {
         },
         (payload) => {
           const newMsg = payload.new as ChatMessage;
-          // Only add if matching channel (or no channel filter)
-          if (!channel || newMsg.channel === channel || !newMsg.channel) {
+          // Filter logic locally for broad subscriptions
+          if (!channel || newMsg.channel === channel) {
+            console.log("Cloud message received:", newMsg);
             setMessages((current) => {
+              // Check for duplicates to prevent double-rendering during optimistic loads
               if (current.some(m => m.id === newMsg.id)) return current;
               return [...current, newMsg];
             });
           }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log("Supabase Realtime Status:", status);
+      });
 
     return () => {
-      supabase.removeChannel(sub);
+      supabase.removeChannel(subscription);
     };
   }, [channel, clubId]);
 
-  const sendMessage = useCallback(async (sender_id: string, sender_name: string, content: string) => {
-    const insertData: Record<string, string> = { sender_id, sender_name, content };
-    if (channel) insertData.channel = channel;
+  const sendMessage = async (sender_id: string, senderName: string, content: string, msgChannel: string = "INFORMAL") => {
+    const targetChannel = channel || msgChannel;
     
-    const { error } = await supabase.from("chat_messages").insert([insertData]);
-    if (error) console.error("Error sending message:", error);
-  }, [channel]);
+    try {
+      // 1. Primary: Cloud Sync (Supabase)
+      const { error } = await supabase.from("chat_messages").insert([
+        { sender_id, sender_name: senderName, content, channel: targetChannel }
+      ]);
+      
+      if (error) {
+        throw new Error(error.message);
+      }
+    } catch (e) {
+      console.warn("Cloud sync unavailable, falling back to local Prisma storage.", e);
+      
+      // 2. Secondary: Local Storage (Prisma API from Main branch)
+      try {
+        await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            content,
+            channel: targetChannel,
+            clubId: clubId || "club-1",
+            userId: sender_id,
+            userName: senderName
+          })
+        });
+      } catch (localErr) {
+        console.error("Critical failure: Both Cloud and Local storage failed.", localErr);
+      }
+    }
+  };
 
-  return { messages, sendMessage, isConnecting };
+  return { messages, sendMessage, isConnecting, setMessages };
 }

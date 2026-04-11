@@ -42,26 +42,22 @@ export default function ChatPage() {
   const [showSummaryModal, setShowSummaryModal] = useState(false);
   const [summaryHours, setSummaryHours] = useState(24);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  
+  // Real-time Cloud Hook (Supabase primary)
+  const { messages: cloudMessages, sendMessage: sendToCloud, isConnecting, setMessages } = useChat(channel, activeClubId || undefined);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [cloudMessages.length]);
 
   const activeClub = user?.clubs.find(c => c.id === activeClubId);
   const isTopRole = activeClub?.role === "SAC_HEAD" || activeClub?.role === "SAC_MEMBER" || activeClub?.role === "CLUB_HEAD";
-
-  // Supabase Realtime chat
-  const { messages: supaMessages, sendMessage, isConnecting } = useChat(channel, activeClubId || undefined);
-
-  // Convert Supabase messages to our UI format
-  const messages: Message[] = supaMessages.map(m => ({
-    id: m.id,
-    sender: m.sender_name,
-    content: m.content,
-    timestamp: new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-  }));
-
-  // Auto-scroll to bottom on new messages
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages.length]);
 
   useEffect(() => {
     if (!isTopRole && channel === "FORMAL") {
@@ -70,9 +66,30 @@ export default function ChatPage() {
   }, [isTopRole, channel]);
 
   const handleSend = async () => {
-    if (!inputText.trim() || !user) return;
-    await sendMessage(user.id, user.name, inputText);
+    if (!inputText.trim() || !activeClubId || !user) return;
+    
+    const content = inputText.trim();
     setInputText("");
+
+    // 1. Optimistic UI update (Instant local feedback)
+    const optimisticMessage = {
+      id: `temp-${Date.now()}`,
+      created_at: new Date().toISOString(),
+      sender_id: user.id,
+      sender_name: user.name,
+      content: content,
+      channel: channel
+    };
+    
+    // We update the hook's state directly for instant feedback
+    setMessages(prev => [...prev, optimisticMessage]);
+
+    // 2. Background Cloud Broadcast
+    try {
+      await sendToCloud(user.id, user.name, content, channel);
+    } catch (e) {
+      console.error("Cloud broadcast failed, message will persist only locally for now.");
+    }
   };
 
   const handleSummarize = async () => {
@@ -154,30 +171,28 @@ export default function ChatPage() {
             <span>{channel === "INFORMAL" ? "Casual brainstorming and discussion" : "Leadership group chat"}</span>
           </div>
           <div className={styles.headerActions}>
-            {channel === "FORMAL" && (
-              <button 
-                className={styles.summarizeBtn} 
-                onClick={handleSummarize}
-                title="AI Summary"
-              >
-                <Sparkles size={18} />
-                <span>AI Summary</span>
-              </button>
-            )}
+            <button 
+              className={styles.summarizeBtn} 
+              onClick={handleSummarize}
+              title="AI Summary"
+            >
+              <Sparkles size={18} />
+              <span>AI Briefing</span>
+            </button>
             <Search size={18} />
             <MoreVertical size={18} />
           </div>
         </header>
 
         <div className={styles.messageList}>
-          {messages.map((msg) => (
-            <div key={msg.id} className={clsx(styles.messageItem, msg.isOfficial && styles.officialMessage)}>
-              <div className={styles.messageAvatar}>{msg.sender.charAt(0)}</div>
+          {cloudMessages.filter(m => m.channel === channel).map((msg) => (
+            <div key={msg.id} className={clsx(styles.messageItem, msg.channel === "FORMAL" && styles.officialMessage)}>
+              <div className={styles.messageAvatar}>{msg.sender_name.charAt(0)}</div>
               <div className={styles.messageContent}>
                 <div className={styles.messageMeta}>
-                  <span className={styles.messageSender}>{msg.sender}</span>
-                  <span className={styles.messageTime}>{msg.timestamp}</span>
-                  {msg.isOfficial && <span className={styles.officialBadge}>OFFICIAL</span>}
+                  <span className={styles.messageSender}>{msg.sender_name}</span>
+                  <span className={styles.messageTime}>{new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                  {msg.channel === "FORMAL" && <span className={styles.officialBadge}>FORMAL</span>}
                 </div>
                 <div className={styles.messageText}>{msg.content}</div>
                 {msg.fileUrl && (

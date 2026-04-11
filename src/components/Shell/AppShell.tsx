@@ -26,11 +26,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const isTopRole = activeClub?.role === "SAC_HEAD" || activeClub?.role === "CLUB_HEAD";
 
   useEffect(() => {
-    const forceLoad = setTimeout(() => setOverrideWait(true), 2500);
+    // Supersonic Bypass: Force UI to load within 1s even if Auth is slow
+    const forceLoad = setTimeout(() => setOverrideWait(true), 1000);
     return () => clearTimeout(forceLoad);
   }, []);
 
-  // Listen for real-time resource requests globally using postgres_changes for max reliability
+  // Listen for real-time resource requests globally using chat_messages as a bus
   useEffect(() => {
     const sub = supabase.channel('resource-alerts')
       .on(
