@@ -198,7 +198,8 @@ export default function RoleDashboard({ params }: PageProps) {
                                 venue: "Cloud Room",
                                 startTime: new Date().toISOString(),
                                 endTime: new Date().toISOString(),
-                                clubId: "collaboration-hub"
+                                clubId: "collaboration-hub",
+                                status: "PENDING"
                               }
                             ]);
                             if (!error) {
@@ -349,18 +350,16 @@ function ClubHeadEventsFeed() {
   const handleStatusUpdate = async (id: string, status: string) => {
     setIsProcessing(id);
     try {
-      const response = await fetch("/api/events", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, status })
-      });
+      const { error } = await supabase
+        .from("events")
+        .update({ status })
+        .eq("id", id);
       
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to update status");
+      if (error) {
+        throw new Error(error.message || "Update failed");
       }
       
-      console.log("Update successful via API!");
+      console.log("Update successful via Supabase!");
     } catch (err: any) {
       console.error("Critical Update Failure:", err.message || err);
     } finally {
