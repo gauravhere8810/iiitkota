@@ -18,7 +18,6 @@ import {
   Send,
   Loader2,
   CheckCircle2,
-  Megaphone,
   Clock,
   Check,
   X
@@ -37,26 +36,18 @@ export default function RoleDashboard({ params }: PageProps) {
   const resolvedParams = React.use(params);
   const roleSlug = resolvedParams.role;
   
-  // Real-time Event Proposal State
   const [showProposeModal, setShowProposeModal] = React.useState(false);
   const [eventTitle, setEventTitle] = React.useState("");
   const [eventDesc, setEventDesc] = React.useState("");
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [showSuccess, setShowSuccess] = React.useState(false);
 
-  // Map slug back to enum
   const roleEnum = roleSlug.toUpperCase().replace("-", "_") as Role;
-
-  useEffect(() => {
-    // Redirect if no user (safety)
-    if (!user) return;
-  }, [user]);
 
   if (!ROLE_HIERARCHY[roleEnum]) {
     return notFound();
   }
 
-  // Simulate unauthorized if the logged-in user doesn't match the role or hierarchy
   if (!user || user.role !== roleEnum) {
     return (
       <div className={styles.locked}>
@@ -144,7 +135,6 @@ export default function RoleDashboard({ params }: PageProps) {
           </div>
         </div>
 
-        {/* Propose Event Modal */}
         {showProposeModal && (
           <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: "1rem" }} onClick={() => setShowProposeModal(false)}>
             <div className="glass" style={{ width: "100%", maxWidth: "500px", padding: "2rem", borderRadius: "24px", border: "1px solid rgba(255,255,255,0.1)", position: "relative" }} onClick={e => e.stopPropagation()}>
@@ -195,11 +185,8 @@ export default function RoleDashboard({ params }: PageProps) {
                                 title: eventTitle,
                                 description: eventDesc,
                                 created_by_name: user?.name,
-                                venue: "Cloud Room",
-                                startTime: new Date().toISOString(),
-                                endTime: new Date().toISOString(),
-                                clubId: "collaboration-hub",
-                                status: "PENDING"
+                                status: "PENDING",
+                                role_origin: roleEnum
                               }
                             ]);
                             if (!error) {
@@ -210,9 +197,12 @@ export default function RoleDashboard({ params }: PageProps) {
                                 setEventTitle("");
                                 setEventDesc("");
                               }, 2000);
+                            } else {
+                              alert("DB Error: " + error.message);
                             }
-                          } catch (e) {
+                          } catch (e: any) {
                             console.error(e);
+                            alert("Catch Error: " + (e.message || String(e)));
                           } finally {
                             setIsSubmitting(false);
                           }
@@ -229,6 +219,7 @@ export default function RoleDashboard({ params }: PageProps) {
             </div>
           </div>
         )}
+
         {roleEnum === "CLUB_HEAD" ? (
           <div style={{ display: "flex", flexDirection: "column", gap: "2rem", gridColumn: "1 / -1" }}>
             <ClubHeadEventsFeed />
@@ -245,6 +236,7 @@ function UserEventProposals({ currentUserName }: { currentUserName?: string }) {
   const [proposals, setProposals] = React.useState<any[]>([]);
 
   React.useEffect(() => {
+    if (!currentUserName) return;
     const fetchProposals = async () => {
       const { data } = await supabase
         .from("events")
@@ -256,7 +248,7 @@ function UserEventProposals({ currentUserName }: { currentUserName?: string }) {
     fetchProposals();
 
     const channel = supabase
-      .channel("user-proposals-channel")
+      .channel(`user-proposals-${currentUserName}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "events" },
@@ -355,10 +347,8 @@ function ClubHeadEventsFeed() {
       if (error) {
         throw new Error(error.message || "Update failed");
       }
-      
-      console.log("Update successful via Supabase!");
     } catch (err: any) {
-      console.error("Critical Update Failure:", err.message || err);
+      console.error("Update failed:", err.message);
     } finally {
       setIsProcessing(null);
     }
@@ -376,7 +366,7 @@ function ClubHeadEventsFeed() {
         </div>
         <div className={styles.content}>
           {pending.length === 0 ? (
-            <p className={styles.empty}>No pending proposals at the moment.</p>
+            <p className={styles.empty}>No pending proposals.</p>
           ) : (
             <ul className={styles.taskList} style={{ display: "flex", flexDirection: "column", gap: "1rem", marginTop: "1rem" }}>
               {pending.map((ev) => (
@@ -418,27 +408,23 @@ function ClubHeadEventsFeed() {
           <h3>Proposal History</h3>
         </div>
         <div className={styles.content}>
-          {history.length === 0 ? (
-            <p className={styles.empty}>No history yet.</p>
-          ) : (
-            <ul className={styles.taskList} style={{ display: "flex", flexDirection: "column", gap: "0.75rem", marginTop: "1rem" }}>
-              {history.map((ev) => (
-                <li key={ev.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.75rem 1rem", background: "rgba(255,255,255,0.02)", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.05)" }}>
-                  <div>
-                    <span style={{ color: "white", fontSize: "0.9rem" }}>{ev.title}</span>
-                    <span style={{ display: "block", fontSize: "0.7rem", color: "rgba(255,255,255,0.4)" }}>By {ev.created_by_name} • {new Date(ev.created_at).toLocaleDateString()}</span>
-                  </div>
-                  <div style={{ 
-                    fontSize: "0.7rem", 
-                    fontWeight: "600",
-                    color: ev.status === "APPROVED" ? "#10b981" : "#ef4444"
-                  }}>
-                    {ev.status}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
+          <ul className={styles.taskList} style={{ display: "flex", flexDirection: "column", gap: "0.75rem", marginTop: "1rem" }}>
+            {history.map((ev) => (
+              <li key={ev.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.75rem 1rem", background: "rgba(255,255,255,0.02)", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.05)" }}>
+                <div>
+                  <span style={{ color: "white", fontSize: "0.9rem" }}>{ev.title}</span>
+                  <span style={{ display: "block", fontSize: "0.7rem", color: "rgba(255,255,255,0.4)" }}>By {ev.created_by_name} • {new Date(ev.created_at).toLocaleDateString()}</span>
+                </div>
+                <div style={{ 
+                  fontSize: "0.7rem", 
+                  fontWeight: "600",
+                  color: ev.status === "APPROVED" ? "#10b981" : "#ef4444"
+                }}>
+                  {ev.status}
+                </div>
+              </li>
+            ))}
+          </ul>
         </div>
       </div>
     </>
