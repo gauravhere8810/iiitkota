@@ -7,14 +7,14 @@ import styles from "./AppShell.module.css";
 import { useAuth } from "@/context/AuthContext";
 import { Loader2 } from "lucide-react";
 
-import CommandCenterChat from "@/components/Chat/CommandCenterChat";
+
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const { isLoading } = useAuth();
   const [overrideWait, setOverrideWait] = React.useState(false);
 
   React.useEffect(() => {
-    const forceLoad = setTimeout(() => setOverrideWait(true), 2500);
+    const forceLoad = setTimeout(() => setOverrideWait(true), 1000);
     return () => clearTimeout(forceLoad);
   }, []);
 
@@ -38,7 +38,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </main>
       </div>
-      <CommandCenterChat />
     </div>
   );
 }

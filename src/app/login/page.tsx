@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { useAuth, Role } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
-import { Lock, Mail, User, Eye, EyeOff, ArrowRight, ShieldCheck, Info } from "lucide-react";
+import { Lock, Mail, User as UserIcon, Eye, EyeOff, ArrowRight, ShieldCheck, Info } from "lucide-react";
 import styles from "./Login.module.css";
 import { clsx } from "clsx";
 
@@ -73,7 +73,7 @@ export default function LoginPage() {
           <div className={styles.inputGroup}>
             <label>Your Name (Identity)</label>
             <div className={styles.inputWrapper}>
-              <User size={18} className={styles.inputIcon} />
+              <UserIcon size={18} className={styles.inputIcon} />
               <input 
                 type="text" 
                 placeholder="e.g. Gaurav" 

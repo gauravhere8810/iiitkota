@@ -41,7 +41,7 @@ export default function Home() {
     const forceLoad = setTimeout(() => {
       console.warn("Forcing UI override over Auth Context freeze");
       setOverrideWait(true);
-    }, 2500);
+    }, 1000);
     return () => clearTimeout(forceLoad);
   }, []);
 
