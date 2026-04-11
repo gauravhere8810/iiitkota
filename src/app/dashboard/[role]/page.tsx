@@ -241,7 +241,7 @@ function ClubHeadEventsFeed() {
   React.useEffect(() => {
     const fetchEvents = async () => {
       try {
-        const { data } = await supabase.from("events").select("*").order("created_at", { ascending: false }).limit(10);
+        const { data } = await supabase.from("events").select("*").in("status", ["PENDING", null]).order("created_at", { ascending: false }).limit(10);
         if (data) setEvents(data);
       } catch (e) {}
     };
@@ -253,7 +253,9 @@ function ClubHeadEventsFeed() {
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "events" },
         (payload: any) => {
-          setEvents((curr) => [payload.new, ...curr]);
+          if (!payload.new.status || payload.new.status === "PENDING") {
+            setEvents((curr) => [payload.new, ...curr]);
+          }
         }
       )
       .subscribe();
@@ -281,11 +283,17 @@ function ClubHeadEventsFeed() {
                   <div style={{ display: "flex", gap: "8px" }}>
                      <span style={{ fontSize: "0.75rem", color: "#10b981", background: "rgba(16, 185, 129, 0.2)", padding: "2px 8px", borderRadius: "100px" }}>NEW</span>
                      <button 
-                        onClick={() => setEvents(curr => curr.filter(e => e.id !== ev.id))}
+                        onClick={async () => {
+                          setEvents(curr => curr.filter(e => e.id !== ev.id));
+                          await supabase.from("events").update({ status: "APPROVED" }).eq("id", ev.id);
+                        }}
                         style={{ background: "rgba(59,130,246,0.2)", border: "none", borderRadius: "4px", color: "#3b82f6", cursor: "pointer", padding: "2px 6px" }}
                      ><Check size={12} /></button>
                      <button 
-                        onClick={() => setEvents(curr => curr.filter(e => e.id !== ev.id))}
+                        onClick={async () => {
+                          setEvents(curr => curr.filter(e => e.id !== ev.id));
+                          await supabase.from("events").update({ status: "REJECTED" }).eq("id", ev.id);
+                        }}
                         style={{ background: "rgba(239,68,68,0.2)", border: "none", borderRadius: "4px", color: "#ef4444", cursor: "pointer", padding: "2px 6px" }}
                      ><X size={12} /></button>
                   </div>
@@ -326,9 +334,13 @@ function CoreMemberEventsFeed({ userName }: { userName: string }) {
       .channel("core-member-events-feed")
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "events", filter: `created_by_name=eq.${userName}` },
+        { event: "*", schema: "public", table: "events", filter: `created_by_name=eq.${userName}` },
         (payload: any) => {
-          setEvents((curr) => [payload.new, ...curr]);
+          if (payload.eventType === "INSERT") {
+            setEvents((curr) => [payload.new, ...curr]);
+          } else if (payload.eventType === "UPDATE") {
+            setEvents((curr) => curr.map(e => e.id === payload.new.id ? payload.new : e));
+          }
         }
       )
       .subscribe();
@@ -354,7 +366,15 @@ function CoreMemberEventsFeed({ userName }: { userName: string }) {
                 <div style={{ display: "flex", justifyContent: "space-between", width: "100%", marginBottom: "0.25rem" }}>
                   <strong style={{ fontSize: "1.1rem", color: "white" }}>{ev.title || "Untitled Event"}</strong>
                   <div style={{ display: "flex", gap: "8px" }}>
-                     <span style={{ fontSize: "0.75rem", color: "#3b82f6", background: "rgba(59, 130, 246, 0.2)", padding: "2px 8px", borderRadius: "100px" }}>PENDING</span>
+                     {(!ev.status || ev.status === "PENDING") && (
+                       <span style={{ fontSize: "0.75rem", color: "#3b82f6", background: "rgba(59, 130, 246, 0.2)", padding: "2px 8px", borderRadius: "100px" }}>PENDING</span>
+                     )}
+                     {ev.status === "APPROVED" && (
+                       <span style={{ fontSize: "0.75rem", color: "#10b981", background: "rgba(16, 185, 129, 0.2)", padding: "2px 8px", borderRadius: "100px" }}>APPROVED</span>
+                     )}
+                     {ev.status === "REJECTED" && (
+                       <span style={{ fontSize: "0.75rem", color: "#ef4444", background: "rgba(239, 68, 68, 0.2)", padding: "2px 8px", borderRadius: "100px" }}>REJECTED</span>
+                     )}
                   </div>
                 </div>
                 <p style={{ color: "rgba(255,255,255,0.6)", fontSize: "0.875rem", marginBottom: "0.75rem" }}>{ev.description || "No description provided."}</p>
